@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Mail, Lock, User, ArrowRight, Loader2 } from 'lucide-react';
+import { BASE_URL } from '../services/api';
 
 interface AuthScreenProps {
   onLogin: (token: string, user: any) => void;
@@ -24,7 +25,7 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
 
     try {
       if (isForgot) {
-        const res = await fetch(`/api/auth/forgot-password`, {
+        const res = await fetch(`${BASE_URL}/auth/forgot-password`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, newPassword }),
@@ -38,7 +39,7 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
       }
 
       const body = isLogin ? { email, password } : { name, email, password };
-      const res = await fetch(`/api/auth/${isLogin ? 'login' : 'register'}`, {
+      const res = await fetch(`${BASE_URL}/auth/${isLogin ? 'login' : 'register'}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),

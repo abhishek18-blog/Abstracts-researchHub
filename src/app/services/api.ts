@@ -4,7 +4,7 @@
 // ──────────────────────────────────────────────────────────────────────────────
 
 const VITE_API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://abstracts-researchhub.onrender.com' : '');
-const BASE_URL = VITE_API_URL ? `${VITE_API_URL.replace(/\/$/, '')}/api` : '/api';
+export const BASE_URL = VITE_API_URL ? `${VITE_API_URL.replace(/\/$/, '')}/api` : '/api';
 
 if (import.meta.env.DEV) {
   console.log('📡 API Base URL:', BASE_URL);
