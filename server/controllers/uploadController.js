@@ -27,7 +27,7 @@ export const uploadPDF = async (req, res) => {
       success: true,
       data: {
         ...upload.toJSON(),
-        url: `/uploads/${req.file.filename}`,
+        url: `${req.fullUrl}/uploads/${req.file.filename}`,
       },
     });
   } catch (error) {
@@ -42,7 +42,7 @@ export const getUploads = async (req, res) => {
 
     const result = uploads.map((u) => ({
       ...u.toJSON(),
-      url: `/uploads/${u.filename}`,
+      url: `${req.fullUrl}/uploads/${u.filename}`,
     }));
 
     res.json({ success: true, data: result });

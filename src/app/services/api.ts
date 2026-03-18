@@ -1,8 +1,14 @@
+/// <reference types="vite/client" />
 // ─── Abstracts API Service ─────────────────────────────────────────────────
 // Centralized API client for all backend communication
 // ──────────────────────────────────────────────────────────────────────────────
 
-const BASE_URL = '/api';
+const VITE_API_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://abstracts-researchhub.onrender.com' : '');
+const BASE_URL = VITE_API_URL ? `${VITE_API_URL.replace(/\/$/, '')}/api` : '/api';
+
+if (import.meta.env.DEV) {
+  console.log('📡 API Base URL:', BASE_URL);
+}
 
 interface ApiResponse<T> {
   success: boolean;
