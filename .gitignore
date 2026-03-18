@@ -23,7 +23,10 @@ yarn-error.log*
 # Local Database (JSON DB)
 # We keep the empty structure but ignore actual data changes
 server/data/db.json
-server/uploads/
+# server/uploads/ (Folder structure should be kept via .gitkeep)
+# server/uploads/*
+!server/uploads/.gitkeep
+server/uploads/[!.]*
 
 # OS files
 .DS_Store

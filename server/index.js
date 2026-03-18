@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 
@@ -22,6 +23,18 @@ import aiRoutes from './routes/ai.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+// Ensure uploads directory exists
+const uploadsDir = path.join(__dirname, 'uploads');
+try {
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+    console.log('📁 Created uploads directory at:', uploadsDir);
+  }
+} catch (err) {
+  console.warn('⚠️ Warning: Could not create uploads directory:', err.message);
+  // This will fail later if multer tries to use it in disk mode
+}
 
 const app = express();
 const PORT = process.env.PORT || 3001;
