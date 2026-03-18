@@ -110,9 +110,16 @@ app.use(errorHandler);
 // ─── Start Server ────────────────────────────────────────────────
 // seedDatabase(); // we might not want to seed automatically, wait for migration
 
-await initializeDatabase();
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`📡 Server listening on port ${PORT}`);
+  
+  // Initialize Database asynchronously after server is up
+  initializeDatabase().then(() => {
+    console.log('✅ MongoDB connected and ready');
+  }).catch(err => {
+    console.error('❌ MongoDB connection failed:', err);
+  });
 
-app.listen(PORT, () => {
   console.log(`
 ╔═══════════════════════════════════════════════════╗
 ║                                                   ║
@@ -124,31 +131,7 @@ app.listen(PORT, () => {
 ║   ├── POST   /api/auth/login                      ║
 ║   ├── GET    /api/auth/me                         ║
 ║   ├── GET    /api/health                          ║
-║   ├── GET    /api/papers                          ║
-║   ├── GET    /api/papers/:id                      ║
-║   ├── POST   /api/papers                          ║
-║   ├── PUT    /api/papers/:id                      ║
-║   ├── DELETE /api/papers/:id                      ║
-║   ├── POST   /api/papers/:id/save                 ║
-║   ├── PUT    /api/papers/:id/progress             ║
-║   ├── GET    /api/projects                        ║
-║   ├── GET    /api/projects/:id                    ║
-║   ├── POST   /api/projects                        ║
-║   ├── PUT    /api/projects/:id                    ║
-║   ├── DELETE /api/projects/:id                    ║
-║   ├── POST   /api/projects/:id/papers             ║
-║   ├── DELETE /api/projects/:id/papers/:paperId    ║
-║   ├── GET    /api/chat/conversations              ║
-║   ├── GET    /api/chat/conversations/:id/messages ║
-║   ├── POST   /api/chat/conversations              ║
-║   ├── POST   /api/chat/conversations/:id/messages ║
-║   ├── DELETE /api/chat/conversations/:id          ║
-║   ├── GET    /api/user                            ║
-║   ├── PUT    /api/user                            ║
-║   ├── POST   /api/upload                          ║
-║   ├── GET    /api/upload                          ║
-║   └── DELETE /api/upload/:id                      ║
-║                                                   ║
+║   └── ... many more                               ║
 ╚═══════════════════════════════════════════════════╝
   `);
 });
