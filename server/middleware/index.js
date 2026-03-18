@@ -37,11 +37,19 @@ export function errorHandler(err, req, res, next) {
     return res.status(400).json({ success: false, error: err.message });
   }
 
-  if (err.message === 'Only PDF files are allowed') {
+  if (err.message === 'Only PDF files are allowed' || err.message === 'Only image files are allowed') {
     return res.status(400).json({ success: false, error: err.message });
   }
 
-  res.status(500).json({ success: false, error: 'Internal server error' });
+  // Handle generic errors with more detail in development or for identification
+  const errorMessage = err.message || 'Internal server error';
+  console.error(`ERROR context: ${req.method} ${req.originalUrl}`);
+  
+  res.status(500).json({ 
+    success: false, 
+    error: errorMessage,
+    // Avoid sending full stack to client for security, but message is helpful
+  });
 }
 
 // Request logger middleware

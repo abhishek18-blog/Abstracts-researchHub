@@ -19,9 +19,11 @@ const storage = multer.diskStorage({
 });
 
 const fileFilter = (req, file, cb) => {
-  if (file.mimetype.startsWith('image/')) {
+  if (file.mimetype.startsWith('image/') || 
+      file.originalname.match(/\.(jpg|jpeg|png|gif|webp|svg)$/i)) {
     cb(null, true);
   } else {
+    console.warn(`Upload Avatar: Rejected file with mimetype "${file.mimetype}" and name "${file.originalname}"`);
     cb(new Error('Only image files are allowed'), false);
   }
 };

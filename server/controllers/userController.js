@@ -67,6 +67,6 @@ export const uploadAvatar = async (req, res) => {
     res.json({ success: true, data: user.toJSON() });
   } catch (error) {
     console.error('Error uploading avatar:', error);
-    res.status(500).json({ success: false, error: 'Failed to upload avatar' });
+    res.status(500).json({ success: false, error: `Upload failed: ${error.message}` });
   }
 };
