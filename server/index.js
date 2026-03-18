@@ -75,6 +75,16 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Public Auth routes
 app.use('/api/auth', authRoutes);
 
+// ─── Health Check ────────────────────────────────────────────────
+app.get('/api/health', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Abstracts API is running',
+    version: '1.0.0',
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // Auth middleware for all other /api routes
 app.use('/api', authMiddleware);
 
@@ -89,16 +99,6 @@ app.use('/api/community', communityRoutes);
 app.use('/api/search', searchRoutes);
 app.use('/api/ai', aiRoutes);
 
-// ─── Health Check ────────────────────────────────────────────────
-app.get('/api/health', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Abstracts API is running',
-    version: '1.0.0',
-    timestamp: new Date().toISOString(),
-  });
-});
-
 // ─── 404 Handler ─────────────────────────────────────────────────
 app.use('/api/*', (req, res) => {
   res.status(404).json({ success: false, error: 'API endpoint not found' });
@@ -112,7 +112,7 @@ app.use(errorHandler);
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`📡 Server listening on port ${PORT}`);
-  
+
   // Initialize Database asynchronously after server is up
   initializeDatabase().then(() => {
     console.log('✅ MongoDB connected and ready');
@@ -124,7 +124,7 @@ app.listen(PORT, '0.0.0.0', () => {
 ╔═══════════════════════════════════════════════════╗
 ║                                                   ║
 ║   🚀  Abstracts API Server                        ║
-║   📡  Running on http://localhost:${PORT}            ║
+║   📡  Running on http://localhost:${PORT}         ║
 ║                                                   ║
 ║   Endpoints:                                      ║
 ║   ├── POST   /api/auth/register                   ║
