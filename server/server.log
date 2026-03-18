@@ -1,0 +1,45 @@
+[dotenv@17.3.1] injecting env (3) from .env -- tip: 🔐 encrypt with Dotenvx: https://dotenvx.com
+✅ MongoDB connected at mongodb+srv://abhishek_db:***@abhishek-dev-db.rjwrsls.mongodb.net/researchhub?retryWrites=true&w=majority&appName=abhishek-dev-db
+
+╔═══════════════════════════════════════════════════╗
+║                                                   ║
+║   🚀  ResearchHub API Server                      ║
+║   📡  Running on http://localhost:3001            ║
+║                                                   ║
+║   Endpoints:                                      ║
+║   ├── POST   /api/auth/register                   ║
+║   ├── POST   /api/auth/login                      ║
+║   ├── GET    /api/auth/me                         ║
+║   ├── GET    /api/health                          ║
+║   ├── GET    /api/papers                          ║
+║   ├── GET    /api/papers/:id                      ║
+║   ├── POST   /api/papers                          ║
+║   ├── PUT    /api/papers/:id                      ║
+║   ├── DELETE /api/papers/:id                      ║
+║   ├── POST   /api/papers/:id/save                 ║
+║   ├── PUT    /api/papers/:id/progress             ║
+║   ├── GET    /api/projects                        ║
+║   ├── GET    /api/projects/:id                    ║
+║   ├── POST   /api/projects                        ║
+║   ├── PUT    /api/projects/:id                    ║
+║   ├── DELETE /api/projects/:id                    ║
+║   ├── POST   /api/projects/:id/papers             ║
+║   ├── DELETE /api/projects/:id/papers/:paperId    ║
+║   ├── GET    /api/chat/conversations              ║
+║   ├── GET    /api/chat/conversations/:id/messages ║
+║   ├── POST   /api/chat/conversations              ║
+║   ├── POST   /api/chat/conversations/:id/messages ║
+║   ├── DELETE /api/chat/conversations/:id          ║
+║   ├── GET    /api/user                            ║
+║   ├── PUT    /api/user                            ║
+║   ├── POST   /api/upload                          ║
+║   ├── GET    /api/upload                          ║
+║   └── DELETE /api/upload/:id                      ║
+║                                                   ║
+╚═══════════════════════════════════════════════════╝
+  
+Fetching papers. query: { saved_by: 'true' } userId: bafba72e-0c5a-4d69-979f-c54c28e596e7
+Filtering saved papers for user: bafba72e-0c5a-4d69-979f-c54c28e596e7
+Found saved entries: 4
+Papers after mapping: 4
+GET /api/papers?saved_by=true [User: bafba72e-0c5a-4d69-979f-c54c28e596e7] → 200 (1019ms)

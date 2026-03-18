@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+dist/
+build/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.*
+
+# Local Database (JSON DB)
+# We keep the empty structure but ignore actual data changes
+server/data/db.json
+server/uploads/
+
+# OS files
+.DS_Store
+Thumbs.db
