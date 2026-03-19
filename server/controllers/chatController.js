@@ -21,13 +21,13 @@ async function getAIResponse(messages, userMessage) {
 
       const chatCompletion = await groq.chat.completions.create({
         messages: [
-          { role: 'system', content: 'You are a helpful AI research assistant for the Abstracts platform.' },
+          { role: 'system', content: 'You are a helpful AI research assistant for the Abstracts platform. CRITICAL: Do NOT use markdown bolding or asterisks (**) anywhere in your output. Provide plain text only.' },
           ...formattedHistory
         ],
         model: 'llama-3.3-70b-versatile',
       });
 
-      return chatCompletion.choices[0].message.content;
+      return chatCompletion.choices[0].message.content.replace(/\*\*/g, '');
     } catch (error) {
       console.warn('Groq Chat Error, falling back to Gemini if available:', error.message);
     }
@@ -65,7 +65,7 @@ async function getAIResponse(messages, userMessage) {
 
           const result = await chat.sendMessage(userMessage);
           const response = await result.response;
-          return response.text();
+          return response.text().replace(/\*\*/g, '');
         } catch (err) {
           console.warn(`Gemini ${modelName} fallback failed:`, err.message);
           continue;

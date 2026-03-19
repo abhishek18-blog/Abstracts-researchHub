@@ -96,7 +96,7 @@ export const suggestPapers = async (req, res) => {
       messages: [
         {
           role: 'system',
-          content: 'You are an expert academic advisor. You must respond in valid JSON format with exactly two properties: "markdown" (containing your conversational response with the formatted list) and "queries" (a JSON array of 5 strings containing exactly the titles of the 5 papers you suggested).',
+          content: 'You are an expert academic advisor. You must respond in valid JSON format with exactly two properties: "markdown" (containing your conversational response with the formatted list) and "queries" (a JSON array of 5 strings containing exactly the titles of the 5 papers you suggested). CRITICAL: Do NOT use markdown bolding or asterisks (**) anywhere in your output. Provide plain text only.',
         },
         {
           role: 'user',
@@ -108,11 +108,13 @@ export const suggestPapers = async (req, res) => {
     });
 
     const parsed = JSON.parse(chatCompletion.choices[0].message.content);
+    // Computationally strip any rogue asterisks just to be absolutely sure
+    const cleanedMarkdown = parsed.markdown ? parsed.markdown.replace(/\*\*/g, '') : '';
 
     res.json({
       success: true,
       data: {
-        suggestions: parsed.markdown,
+        suggestions: cleanedMarkdown,
         queries: parsed.queries
       }
     });
