@@ -268,3 +268,23 @@
   opacity: 0;
   animation: letterAppear 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
+
+.brand-animated-bg {
+  /* Transitioning between light electric blues, royal blues, and midnight tones */
+  background: linear-gradient(-45deg, #1e1b4b, #1e40af, #3b82f6, #172554, #020617);
+  background-size: 400% 400%;
+  animation: entranceGradient 15s ease infinite;
+  transition: background 0.8s ease-in-out;
+}
+
+@keyframes entranceGradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}

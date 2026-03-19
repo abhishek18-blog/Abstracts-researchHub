@@ -61,8 +61,8 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
 
   return (
     <div className="relative min-h-screen flex items-center justify-center overflow-hidden font-['Outfit']">
-      {/* Simple Default Dark Background */}
-      <div className="absolute inset-0 z-0 bg-slate-950"></div>
+      {/* Animated Brand Background */}
+      <div className="absolute inset-0 z-0 brand-animated-bg"></div>
 
       <div className="w-full max-w-6xl px-6 relative z-10 flex flex-col lg:flex-row items-center justify-between gap-20">
 
