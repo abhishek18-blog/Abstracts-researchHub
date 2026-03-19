@@ -22,7 +22,7 @@ export function BrandLogo({ className = "", isAuthScreen = false }: BrandLogoPro
           </span>
         ))}
       </span>
-      <span className="text-blue-500">
+      <span className={isAuthScreen ? "text-blue-400 drop-shadow-[0_1px_8px_rgba(0,0,0,0.6)]" : "text-blue-500"}>
         {part2.map((char, i) => (
           <span
             key={i + part1.length}
