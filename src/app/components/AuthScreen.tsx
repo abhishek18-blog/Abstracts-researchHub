@@ -60,24 +60,8 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
 
   return (
     <div className="relative min-h-screen flex items-center justify-center overflow-hidden font-['Outfit']">
-      {/* Immersive Video Layer */}
-      <div className="absolute inset-0 z-0">
-        <video
-          autoPlay
-          muted
-          loop
-          playsInline
-          className="absolute min-w-full min-h-full object-cover"
-        >
-          <source
-            src="https://www.pexels.com/download/video/10554503/"
-            type="video/mp4"
-          />
-        </video>
-        {/* Cinematic Multi-layered Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-tr from-[#030213] via-[#030213]/80 to-blue-900/40"></div>
-        <div className="absolute inset-0 backdrop-blur-[2px]"></div>
-      </div>
+      {/* Simple Default Dark Background */}
+      <div className="absolute inset-0 z-0 bg-slate-950"></div>
 
       <div className="w-full max-w-6xl px-6 relative z-10 flex flex-col lg:flex-row items-center justify-between gap-20">
 
@@ -102,7 +86,7 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
         </div>
 
         {/* Auth Interface */}
-        <div className="w-full max-w-[440px] glass-morphism rounded-[48px] p-10 md:p-12 shadow-2xl animate-in fade-in zoom-in-95 duration-1000">
+        <div className="w-full max-w-[440px] bg-slate-900 border border-slate-800 rounded-[48px] p-10 md:p-12 shadow-2xl animate-in fade-in zoom-in-95 duration-1000">
           <div className="mb-10 text-center lg:text-left">
             <h2 className="text-3xl font-bold text-white mb-2">
               {isLogin ? 'Portal Access' : 'Begin Journey'}

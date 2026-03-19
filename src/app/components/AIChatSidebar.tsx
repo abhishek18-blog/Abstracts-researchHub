@@ -105,7 +105,7 @@ export function AIChatSidebar({ isOpen, onClose }: AIChatSidebarProps) {
 
     try {
       let currentConvId = activeConversationId;
-      
+
       // If no active conversation, create one first
       if (!currentConvId) {
         const response = await chatApi.createConversation();
@@ -126,7 +126,7 @@ export function AIChatSidebar({ isOpen, onClose }: AIChatSidebarProps) {
       setMessages(prev => [...prev, tempUserMsg]);
 
       const response = await chatApi.sendMessage(currentConvId, content);
-      
+
       // Replace temp message with real one and add AI response
       setMessages(prev => [
         ...prev.filter(m => !m.id.startsWith('temp-')),
@@ -167,7 +167,7 @@ export function AIChatSidebar({ isOpen, onClose }: AIChatSidebarProps) {
       setMessages(prev => [...prev, tempUserMsg]);
 
       const response = await aiApi.summarizePDF(uploadId);
-      
+
       // If we didn't have a conversation, we should probably have created one by now
       // but if not, let's just show the response
       setMessages(prev => [
@@ -187,7 +187,7 @@ export function AIChatSidebar({ isOpen, onClose }: AIChatSidebarProps) {
           created_at: new Date().toISOString(),
         }
       ]);
-      
+
       // Add to database if we have a conversation
       if (activeConversationId) {
         await chatApi.sendMessage(activeConversationId, `Please summarize the PDF: "${fileName}"`);
@@ -213,7 +213,7 @@ export function AIChatSidebar({ isOpen, onClose }: AIChatSidebarProps) {
 
   const handleSuggestPapers = async (explicitTopic?: string) => {
     if (sending) return;
-    
+
     // Use explicit topic if provided, else use last message, else generic
     const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content;
     const topic = explicitTopic || lastUserMsg || "latest trends in AI and Research Platforms";
@@ -230,7 +230,7 @@ export function AIChatSidebar({ isOpen, onClose }: AIChatSidebarProps) {
       setMessages(prev => [...prev, tempUserMsg]);
 
       const response = await aiApi.suggestPapers({ topic });
-      
+
       setMessages(prev => [
         ...prev.filter(m => !m.id.startsWith('temp-')),
         {
@@ -333,11 +333,10 @@ export function AIChatSidebar({ isOpen, onClose }: AIChatSidebarProps) {
               <div
                 key={conv.id}
                 onClick={() => loadConversation(conv.id)}
-                className={`group px-5 py-4 rounded-3xl cursor-pointer transition-all duration-300 border relative overflow-hidden ${
-                  conv.id === activeConversationId 
-                    ? 'bg-primary/5 border-primary/20 shadow-sm' 
+                className={`group px-5 py-4 rounded-3xl cursor-pointer transition-all duration-300 border relative overflow-hidden ${conv.id === activeConversationId
+                    ? 'bg-primary/5 border-primary/20 shadow-sm'
                     : 'bg-card border-primary/5 hover:border-primary/20 hover:shadow-md hover:-translate-y-0.5'
-                }`}
+                  }`}
               >
                 <div className="flex items-start justify-between gap-3 relative z-10">
                   <div className="flex-1 min-w-0">
@@ -447,7 +446,7 @@ export function AIChatSidebar({ isOpen, onClose }: AIChatSidebarProps) {
               seenIds.add(m.id);
               return true;
             });
-            
+
             return uniqueMessages.map((message) => (
               <div
                 key={message.id}
@@ -455,17 +454,16 @@ export function AIChatSidebar({ isOpen, onClose }: AIChatSidebarProps) {
               >
                 <div className={`flex flex-col ${message.role === 'user' ? 'items-end' : 'items-start'} max-w-[90%]`}>
                   <div
-                    className={`rounded-[24px] px-5 py-4 shadow-sm border ${
-                      message.role === 'user'
+                    className={`rounded-[24px] px-5 py-4 shadow-sm border ${message.role === 'user'
                         ? 'bg-primary text-primary-foreground border-primary/10 rounded-tr-none'
                         : 'bg-card text-foreground border-primary/10 rounded-tl-none font-medium'
-                    }`}
+                      }`}
                   >
                     <p className="text-[14px] leading-relaxed whitespace-pre-line select-text">
                       {message.content}
                     </p>
                   </div>
-                  
+
                   {(message as any).isDiscoverPrompt && (
                     <div className="flex items-center gap-3 mt-3 px-1 animate-in fade-in slide-in-from-bottom-2">
                       <button
@@ -542,7 +540,7 @@ export function AIChatSidebar({ isOpen, onClose }: AIChatSidebarProps) {
               <span className="text-[10px] font-black text-muted-foreground/30 uppercase tracking-[0.2em] px-2 leading-none">Intelligence Hub</span>
               <span className="h-px flex-1 bg-border/50"></span>
             </div>
-            
+
             <div className="grid grid-cols-2 gap-3 mb-4">
               <button
                 onClick={handleUploadPDF}
@@ -563,7 +561,7 @@ export function AIChatSidebar({ isOpen, onClose }: AIChatSidebarProps) {
                 <span className="text-xs font-bold tracking-tight">Suggestions</span>
               </button>
             </div>
-            
+
             <div className="flex flex-wrap gap-2 overflow-x-auto pb-1 no-scrollbar">
               {['Highlight key findings', 'Explain technical terms', 'Compare results'].map((suggestion) => (
                 <button
@@ -585,7 +583,7 @@ export function AIChatSidebar({ isOpen, onClose }: AIChatSidebarProps) {
               <div className="bg-purple-500/10 border border-purple-500/20 text-purple-600 px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-2 backdrop-blur-md shadow-sm">
                 <BookOpen className="w-3.5 h-3.5" />
                 Suggestion Mode Active
-                <button 
+                <button
                   onClick={() => setIsSuggestionMode(false)}
                   className="ml-2 hover:bg-purple-500/20 rounded-full p-0.5 transition-colors"
                 >

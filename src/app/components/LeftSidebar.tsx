@@ -51,8 +51,8 @@ export function LeftSidebar({ activeTab, onTabChange }: LeftSidebarProps) {
               key={id}
               onClick={() => onTabChange(id)}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all ${isActive
-                  ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
-                  : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
+                ? 'bg-primary text-primary-foreground shadow-lg shadow-primary/20'
+                : 'text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground'
                 }`}
             >
               <div className="flex items-center gap-3">
