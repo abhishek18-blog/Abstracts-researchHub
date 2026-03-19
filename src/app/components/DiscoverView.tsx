@@ -20,7 +20,7 @@ export function DiscoverView() {
       if (stored) {
         setRecentSearches(JSON.parse(stored));
       }
-    } catch (e) {}
+    } catch (e) { }
   }, []);
 
   const saveRecentSearch = (searchQuery: string) => {
@@ -32,7 +32,7 @@ export function DiscoverView() {
         localStorage.setItem('recentSearches', JSON.stringify(updated));
         return updated;
       });
-    } catch(e) {}
+    } catch (e) { }
   };
 
   const LIMIT = 10;
@@ -40,7 +40,7 @@ export function DiscoverView() {
   const doSearch = useCallback(async (q: string, newOffset = 0) => {
     if (!q.trim()) return;
     saveRecentSearch(q);
-    
+
     setLoading(true);
     setError(null);
     setHasSearched(true);
@@ -169,7 +169,7 @@ export function DiscoverView() {
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-xs font-medium text-[#9CA3AF] uppercase tracking-wide">Recent searches</p>
-                  <button 
+                  <button
                     onClick={() => { setRecentSearches([]); localStorage.removeItem('recentSearches'); }}
                     className="text-xs text-blue-500 hover:text-blue-600 font-medium"
                   >
@@ -328,8 +328,8 @@ function ExternalPaperCard({
             disabled={isImported || isImporting}
             title={isImported ? 'Already in library' : 'Import to library'}
             className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all ${isImported
-                ? 'bg-green-50 text-green-600 border border-green-200 cursor-default'
-                : 'bg-black text-white hover:bg-blue-600'
+              ? 'bg-green-50 text-green-600 border border-green-200 cursor-default'
+              : 'bg-black text-white hover:bg-blue-600'
               }`}
           >
             {isImporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : isImported ? <Check className="w-3.5 h-3.5" /> : <BookmarkPlus className="w-3.5 h-3.5" />}

@@ -41,22 +41,22 @@ export default function App() {
 
   if (!isAuthenticated) {
     return (
-      <AuthScreen 
+      <AuthScreen
         onLogin={(token, user) => {
           localStorage.setItem('token', token);
           setUser(user);
           setIsAuthenticated(true);
-        }} 
+        }}
       />
     );
   }
 
   const renderMain = () => {
     switch (activeTab) {
-      case 'settings':   return <SettingsView />;
-      case 'community':  return <CommunityView onPaperSelect={setSelectedPaper} />;
-      case 'discover':   return <DiscoverView />;
-      default:           return <CenterFeed activeTab={activeTab} onPaperSelect={setSelectedPaper} />;
+      case 'settings': return <SettingsView />;
+      case 'community': return <CommunityView onPaperSelect={setSelectedPaper} />;
+      case 'discover': return <DiscoverView />;
+      default: return <CenterFeed activeTab={activeTab} onPaperSelect={setSelectedPaper} />;
     }
   };
 

@@ -70,7 +70,7 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
           className="absolute min-w-full min-h-full object-cover"
         >
           <source
-            src="https://assets.mixkit.co/videos/preview/mixkit-plexus-abstract-background-of-a-connected-network-of-points-and-31518-large.mp4"
+            src="https://www.pexels.com/download/video/10554503/"
             type="video/mp4"
           />
         </video>
