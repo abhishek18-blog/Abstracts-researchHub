@@ -1,6 +1,8 @@
-import { FileText, Users, Calendar, ExternalLink, Bookmark, BookmarkCheck, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { FileText, Users, Calendar, ExternalLink, Bookmark, BookmarkCheck, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { Progress } from './ui/progress';
+import { AbstractViewPaper } from './AbstractViewPaper';
 
 interface ResearchPaperCardProps {
   id: string;
@@ -35,6 +37,8 @@ export function ResearchPaperCard({
   onToggleSave,
   onDelete,
 }: ResearchPaperCardProps) {
+  const [isAbstractExpanded, setIsAbstractExpanded] = useState(false);
+
   return (
     <div
       className="bg-card border border-primary/10 rounded-2xl p-6 hover:shadow-2xl hover:shadow-primary/5 transition-all duration-300 cursor-pointer relative group/card border-l-4 border-l-transparent hover:border-l-primary"
@@ -114,9 +118,32 @@ export function ResearchPaperCard({
       </div>
 
       {/* Abstract */}
-      <p className="text-sm text-muted-foreground line-clamp-3 mb-6 leading-relaxed italic border-l-2 border-primary/20 pl-4 py-1">
-        "{abstract}"
-      </p>
+      <div className="mb-6">
+        {!isAbstractExpanded ? (
+          <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed italic border-l-2 border-primary/20 pl-4 py-1">
+            "{abstract}"
+          </p>
+        ) : (
+          <AbstractViewPaper paperId={id} />
+        )}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsAbstractExpanded(!isAbstractExpanded);
+          }}
+          className="mt-2 text-[10px] font-bold uppercase tracking-widest text-primary hover:text-primary/80 flex items-center gap-1 transition-colors"
+        >
+          {isAbstractExpanded ? (
+            <>
+              Hide Abstract <ChevronUp className="w-3 h-3" />
+            </>
+          ) : (
+            <>
+              View Abstract <ChevronDown className="w-3 h-3" />
+            </>
+          )}
+        </button>
+      </div>
 
       {/* Reading Progress */}
       {readingProgress !== undefined && (

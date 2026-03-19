@@ -231,7 +231,7 @@ export function CenterFeed({ activeTab, onPaperSelect }: CenterFeedProps) {
           {/* Recently saved papers */}
           {papers.length > 0 && papers.filter(p => p.saved).length > 0 && (
             <div className="mt-12">
-              <h3 className="text-xl font-semibold text-[#111827] mb-6">Recently Saved Papers</h3>
+              <h3 className="text-xl font-semibold text-white mb-6">Recently Saved Papers</h3>
               <div className="space-y-4">
                 {papers.filter(p => p.saved).slice(0, 2).map((paper) => (
                   <ResearchPaperCard
