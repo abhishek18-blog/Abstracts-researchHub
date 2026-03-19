@@ -12,11 +12,35 @@ export function DiscoverView() {
   const [importedIds, setImportedIds] = useState<Set<string>>(new Set());
   const [importingId, setImportingId] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('recentSearches');
+      if (stored) {
+        setRecentSearches(JSON.parse(stored));
+      }
+    } catch (e) {}
+  }, []);
+
+  const saveRecentSearch = (searchQuery: string) => {
+    if (!searchQuery.trim()) return;
+    try {
+      setRecentSearches(prev => {
+        let updated = [searchQuery.trim(), ...prev.filter(s => s.toLowerCase() !== searchQuery.trim().toLowerCase())];
+        updated = updated.slice(0, 4); // Keep top 4
+        localStorage.setItem('recentSearches', JSON.stringify(updated));
+        return updated;
+      });
+    } catch(e) {}
+  };
 
   const LIMIT = 10;
 
   const doSearch = useCallback(async (q: string, newOffset = 0) => {
     if (!q.trim()) return;
+    saveRecentSearch(q);
+    
     setLoading(true);
     setError(null);
     setHasSearched(true);
@@ -138,10 +162,36 @@ export function DiscoverView() {
           </button>
         </form>
 
-        {/* Suggestions */}
+        {/* Suggestions & Recent Searches */}
         {!hasSearched && (
           <div className="mb-8">
-            <p className="text-xs font-medium text-[#9CA3AF] uppercase tracking-wide mb-3">Popular searches</p>
+            {recentSearches.length > 0 && (
+              <div className="mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-medium text-[#9CA3AF] uppercase tracking-wide">Recent searches</p>
+                  <button 
+                    onClick={() => { setRecentSearches([]); localStorage.removeItem('recentSearches'); }}
+                    className="text-xs text-blue-500 hover:text-blue-600 font-medium"
+                  >
+                    Clear History
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {recentSearches.map(s => (
+                    <button
+                      key={s}
+                      onClick={() => { setQuery(s); doSearch(s, 0); }}
+                      className="px-4 py-2 bg-gray-50 border border-[#E5E7EB] rounded-full text-sm text-[#374151] hover:border-black hover:text-black transition-all flex items-center gap-2"
+                    >
+                      <Search className="w-3.5 h-3.5 text-gray-400" />
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <p className="text-xs font-medium text-[#9CA3AF] uppercase tracking-wide mb-3">Popular topics</p>
             <div className="flex flex-wrap gap-2">
               {suggestions.map(s => (
                 <button
