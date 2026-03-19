@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Mail, Lock, User, ArrowRight, Loader2 } from 'lucide-react';
 import { BASE_URL } from '../services/api';
+import { BrandLogo } from './BrandLogo';
 
 interface AuthScreenProps {
   onLogin: (token: string, user: any) => void;
@@ -68,8 +69,8 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
         {/* Brand Section */}
         <div className="flex-1 text-center lg:text-left animate-in fade-in slide-in-from-top-4 duration-1000">
 
-          <h1 className="text-6xl md:text-8xl font-black tracking-tighter mb-6 leading-none">
-            <span className="text-black drop-shadow-[0_0_1px_rgba(255,255,255,0.8)]">Abs</span><span className="text-blue-500">tracts</span>
+          <h1 className="text-6xl md:text-8xl font-black tracking-tighter mb-6 leading-none flex items-center justify-center lg:justify-start">
+            <BrandLogo isAuthScreen={true} />
           </h1>
 
           {/* THE QUOTE - Highlighted elegantly */}

@@ -2,6 +2,7 @@ import { BookOpen, FolderOpen, BookmarkCheck, Settings, Globe, Users, Loader2, L
 import { useState, useEffect } from 'react';
 import { userApi, type UserProfile } from '../services/api';
 import { useTheme } from '../context/ThemeContext';
+import { BrandLogo } from './BrandLogo';
 
 interface LeftSidebarProps {
   activeTab: string;
@@ -37,7 +38,7 @@ export function LeftSidebar({ activeTab, onTabChange }: LeftSidebarProps) {
       {/* Logo */}
       <div className="p-6 border-b border-sidebar-border">
         <h1 className="text-xl font-semibold flex justify-between items-center">
-          <span className="text-black dark:text-white">Abs<span className="text-blue-500">tracts</span></span>
+          <BrandLogo />
         </h1>
         <p className="text-muted-foreground text-sm mt-1">AI-Powered Discovery</p>
       </div>
