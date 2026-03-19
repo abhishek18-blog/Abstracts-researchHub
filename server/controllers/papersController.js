@@ -80,10 +80,74 @@ export const getPaperById = async (req, res) => {
     const savedEntry = await SavedPaper.findOne({ user_id: req.userId, paper_id: paper._id });
     const progressEntry = await ReadingProgress.findOne({ user_id: req.userId, paper_id: paper._id });
 
+    // Attempt to fetch abstract dynamically if missing
+    let fetchedAbstract = paper.abstract;
+    if (!fetchedAbstract || fetchedAbstract.trim().length < 20) {
+      try {
+        // 1. Try Semantic Scholar
+        if (paper.external_id && !paper.external_id.includes('openalex')) {
+          const sRes = await fetch(`https://api.semanticscholar.org/graph/v1/paper/${paper.external_id}?fields=abstract`);
+          if (sRes.ok) {
+            const sData = await sRes.json();
+            if (sData.abstract) fetchedAbstract = sData.abstract;
+          }
+        } 
+        
+        // 2. Try OpenAlex
+        if ((!fetchedAbstract || fetchedAbstract.trim().length < 20) && paper.doi) {
+          const oaRes = await fetch(`https://api.openalex.org/works/doi:${paper.doi}`);
+          if (oaRes.ok) {
+            const oaData = await oaRes.json();
+            if (oaData.abstract_inverted_index) {
+              const index = oaData.abstract_inverted_index;
+              const words = [];
+              for (const [word, positions] of Object.entries(index)) {
+                for (const pos of positions) words[pos] = word;
+              }
+              fetchedAbstract = words.join(' ').replace(/\s+/g, ' ').trim();
+            }
+          }
+        }
+
+        // 3. Fallback to HTML Scraping from source url meta tags (fixes user's issue entirely)
+        if ((!fetchedAbstract || fetchedAbstract.trim().length < 20) && paper.source_url) {
+          try {
+            const htmlRes = await fetch(paper.source_url, {
+              headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+              signal: AbortSignal.timeout(4000)
+            });
+            if (htmlRes.ok) {
+              const html = await htmlRes.text();
+              const citationMatch = html.match(/<meta[^>]*name=["']citation_abstract["'][^>]*content=["']([^"']+)["'][^>]*>/i);
+              const dcMatch = html.match(/<meta[^>]*name=["']dc\.description["'][^>]*content=["']([^"']+)["'][^>]*>/i);
+              const ogMatch = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["'][^>]*>/i);
+              
+              if (citationMatch) fetchedAbstract = citationMatch[1];
+              else if (dcMatch) fetchedAbstract = dcMatch[1];
+              else if (ogMatch && !ogMatch[1].includes('research-article')) fetchedAbstract = ogMatch[1];
+            }
+          } catch (e) { /* ignore timeout */ }
+        }
+
+        // Save back to DB to permanently fix this paper
+        if (fetchedAbstract && fetchedAbstract.trim().length >= 20 && fetchedAbstract !== paper.abstract) {
+          paper.abstract = fetchedAbstract;
+          await paper.save();
+        }
+      } catch (err) {
+        console.error('Dynamic abstract fetch error:', err.message);
+      }
+    }
+
+    const responseData = paper.toJSON();
+    if (fetchedAbstract && fetchedAbstract.trim().length >= 20) {
+      responseData.abstract = fetchedAbstract;
+    }
+
     res.json({
       success: true,
       data: {
-        ...paper.toJSON(),
+        ...responseData,
         saved: !!savedEntry,
         readingProgress: progressEntry ? progressEntry.progress : undefined,
       },
