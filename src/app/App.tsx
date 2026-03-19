@@ -31,6 +31,14 @@ export default function App() {
     }
   }, []);
 
+  useEffect(() => {
+    const handleSwitchTab = () => {
+      setActiveTab('discover');
+    };
+    window.addEventListener('openDiscoverTab', handleSwitchTab);
+    return () => window.removeEventListener('openDiscoverTab', handleSwitchTab);
+  }, []);
+
   if (!isAuthenticated) {
     return (
       <AuthScreen 

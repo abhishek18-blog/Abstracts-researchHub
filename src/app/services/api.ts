@@ -389,7 +389,7 @@ export const aiApi = {
     }),
 
   suggestPapers: (params: { topic?: string; context?: string }) =>
-    request<{ suggestions: string }>('/ai/suggest-papers', {
+    request<{ suggestions: string; queries: string[] }>('/ai/suggest-papers', {
       method: 'POST',
       body: JSON.stringify(params),
     }),

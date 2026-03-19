@@ -16,6 +16,7 @@ export function AIChatSidebar({ isOpen, onClose }: AIChatSidebarProps) {
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [showConversationList, setShowConversationList] = useState(false);
+  const [isSuggestionMode, setIsSuggestionMode] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -91,6 +92,14 @@ export function AIChatSidebar({ isOpen, onClose }: AIChatSidebarProps) {
     if (!inputValue.trim() || sending) return;
 
     const content = inputValue.trim();
+
+    if (isSuggestionMode) {
+      setIsSuggestionMode(false);
+      setInputValue('');
+      await handleSuggestPapers(content);
+      return;
+    }
+
     setInputValue('');
     setSending(true);
 
@@ -202,12 +211,12 @@ export function AIChatSidebar({ isOpen, onClose }: AIChatSidebarProps) {
     }
   };
 
-  const handleSuggestPapers = async () => {
+  const handleSuggestPapers = async (explicitTopic?: string) => {
     if (sending) return;
     
-    // Use last message as context if available, or just ask generally
+    // Use explicit topic if provided, else use last message, else generic
     const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content;
-    const topic = lastUserMsg || "latest trends in AI and Research Platforms";
+    const topic = explicitTopic || lastUserMsg || "latest trends in AI and Research Platforms";
 
     setSending(true);
     try {
@@ -237,7 +246,16 @@ export function AIChatSidebar({ isOpen, onClose }: AIChatSidebarProps) {
           role: 'assistant',
           content: response.data.suggestions,
           created_at: new Date().toISOString(),
-        }
+        },
+        {
+          id: `sys-${Date.now()}`,
+          conversation_id: activeConversationId || '',
+          role: 'assistant',
+          content: 'Would you like to search these papers out on Discover?',
+          created_at: new Date().toISOString(),
+          isDiscoverPrompt: true,
+          discoverQueries: response.data.queries
+        } as any
       ]);
     } catch (err) {
       console.error('Suggestions failed:', err);
@@ -448,7 +466,32 @@ export function AIChatSidebar({ isOpen, onClose }: AIChatSidebarProps) {
                     </p>
                   </div>
                   
-                  {message.role === 'assistant' && (
+                  {(message as any).isDiscoverPrompt && (
+                    <div className="flex items-center gap-3 mt-3 px-1 animate-in fade-in slide-in-from-bottom-2">
+                      <button
+                        onClick={() => {
+                          window.dispatchEvent(new Event('openDiscoverTab'));
+                          setTimeout(() => {
+                            window.dispatchEvent(new CustomEvent('searchDiscover', { detail: (message as any).discoverQueries }));
+                            onClose();
+                          }, 100);
+                        }}
+                        className="px-6 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-bold shadow-md shadow-primary/20 hover:opacity-90 active:scale-95 transition-all"
+                      >
+                        Yes
+                      </button>
+                      <button
+                        onClick={() => {
+                          setMessages(prev => prev.filter(m => m.id !== message.id));
+                        }}
+                        className="px-6 py-2 bg-muted text-muted-foreground rounded-xl text-sm font-bold shadow-sm hover:bg-muted/80 active:scale-95 transition-all"
+                      >
+                        No
+                      </button>
+                    </div>
+                  )}
+
+                  {message.role === 'assistant' && !(message as any).isDiscoverPrompt && (
                     <div className="flex items-center gap-3 mt-3 px-1">
                       <button
                         onClick={() => handleCopyMessage(message.id, message.content)}
@@ -511,7 +554,7 @@ export function AIChatSidebar({ isOpen, onClose }: AIChatSidebarProps) {
                 <span className="text-xs font-bold tracking-tight">Summarize PDF</span>
               </button>
               <button
-                onClick={handleSuggestPapers}
+                onClick={() => setIsSuggestionMode(true)}
                 className="flex items-center justify-center gap-2 px-4 py-3 bg-card border border-primary/10 rounded-2xl hover:border-primary/30 hover:bg-primary/5 transition-all text-foreground group"
               >
                 <div className="p-1.5 bg-purple-500/10 rounded-lg group-hover:bg-purple-500/20 transition-colors">
@@ -536,9 +579,23 @@ export function AIChatSidebar({ isOpen, onClose }: AIChatSidebarProps) {
         )}
 
         {/* Input Field */}
-        <div className="relative group/input">
+        <div className="relative group/input mt-4">
+          {isSuggestionMode && (
+            <div className="absolute -top-12 left-0 right-0 flex justify-center animate-in fade-in slide-in-from-bottom-2 z-20">
+              <div className="bg-purple-500/10 border border-purple-500/20 text-purple-600 px-4 py-1.5 rounded-full text-xs font-bold flex items-center gap-2 backdrop-blur-md shadow-sm">
+                <BookOpen className="w-3.5 h-3.5" />
+                Suggestion Mode Active
+                <button 
+                  onClick={() => setIsSuggestionMode(false)}
+                  className="ml-2 hover:bg-purple-500/20 rounded-full p-0.5 transition-colors"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+          )}
           <div className="absolute inset-0 bg-primary/5 rounded-[28px] blur-sm group-focus-within/input:bg-primary/10 transition-all opacity-0 group-focus-within/input:opacity-100"></div>
-          <div className="relative flex items-end gap-3 bg-card border border-primary/10 rounded-[28px] p-2 pr-3 pr-2 transition-all focus-within:border-primary/30 focus-within:shadow-xl focus-within:shadow-primary/5">
+          <div className={`relative flex items-end gap-3 bg-card border ${isSuggestionMode ? 'border-purple-500/30 focus-within:border-purple-500/50 focus-within:shadow-purple-500/10' : 'border-primary/10 focus-within:border-primary/30 focus-within:shadow-primary/5'} rounded-[28px] p-2 pr-3 pr-2 transition-all focus-within:shadow-xl`}>
             <textarea
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
@@ -548,7 +605,7 @@ export function AIChatSidebar({ isOpen, onClose }: AIChatSidebarProps) {
                   handleSendMessage();
                 }
               }}
-              placeholder="Deep dive into your research..."
+              placeholder={isSuggestionMode ? "Type a topic to get suggestions..." : "Deep dive into your research..."}
               className="flex-1 px-5 py-4 bg-transparent border-none focus:ring-0 text-sm font-medium placeholder-muted-foreground/50 resize-none min-h-[56px] max-h-[160px] custom-scrollbar"
               rows={1}
             />

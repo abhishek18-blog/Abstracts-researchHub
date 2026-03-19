@@ -89,14 +89,14 @@ export const suggestPapers = async (req, res) => {
     }
 
     const prompt = context
-      ? `Based on the following research context, suggest 5 relevant research papers or areas of study: \n\n${context}`
-      : `Suggest 5 modern and highly relevant research papers for the topic: "${topic}". For each paper, provide a title, a brief explanation of why it is relevant, and potential keywords.`;
+      ? `Based on the following research context, suggest exactly 5 relevant research papers. \n\n${context}`
+      : `Suggest exactly 5 modern and highly relevant research papers for the topic: "${topic}". For each paper, provide a title, a brief explanation of why it is relevant, and potential keywords.`;
 
     const chatCompletion = await groq.chat.completions.create({
       messages: [
         {
           role: 'system',
-          content: 'You are an expert academic advisor and researcher with deep knowledge across many fields. Provide suggestions in a clear, formatted list.',
+          content: 'You are an expert academic advisor. You must respond in valid JSON format with exactly two properties: "markdown" (containing your conversational response with the formatted list) and "queries" (a JSON array of 5 strings containing exactly the titles of the 5 papers you suggested).',
         },
         {
           role: 'user',
@@ -104,12 +104,16 @@ export const suggestPapers = async (req, res) => {
         },
       ],
       model: 'llama-3.3-70b-versatile',
+      response_format: { type: 'json_object' }
     });
+
+    const parsed = JSON.parse(chatCompletion.choices[0].message.content);
 
     res.json({
       success: true,
       data: {
-        suggestions: chatCompletion.choices[0].message.content
+        suggestions: parsed.markdown,
+        queries: parsed.queries
       }
     });
   } catch (error) {

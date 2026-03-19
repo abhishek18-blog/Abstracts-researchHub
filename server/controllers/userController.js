@@ -57,9 +57,10 @@ export const uploadAvatar = async (req, res) => {
       return res.status(400).json({ success: false, error: 'No file uploaded' });
     }
 
-    const avatarUrl = `${req.fullUrl}/uploads/${req.file.filename}`;
+    const base64Image = req.file.buffer.toString('base64');
+    const avatarUrl = `data:${req.file.mimetype};base64,${base64Image}`;
     const user = await User.findByIdAndUpdate(req.userId, { avatar_url: avatarUrl }, { new: true });
-    
+
     if (!user) {
       return res.status(404).json({ success: false, error: 'User not found' });
     }

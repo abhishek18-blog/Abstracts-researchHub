@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Search, Download, ExternalLink, FileText, Users, Calendar, Loader2, BookmarkPlus, Check, Globe } from 'lucide-react';
 import { searchApi, type ExternalPaper } from '../services/api';
 
@@ -35,6 +35,45 @@ export function DiscoverView() {
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    const handleRemoteSearch = async (e: any) => {
+      const payload = e.detail;
+      if (Array.isArray(payload)) {
+        setQuery(payload.join(', '));
+        setResults([]);
+        setLoading(true);
+        setError(null);
+        setHasSearched(true);
+        try {
+          const allResults: ExternalPaper[] = [];
+          for (const q of payload) {
+            if (!q || typeof q !== 'string' || !q.trim()) continue;
+            try {
+              const res = await searchApi.searchPapers(q.trim(), 1, 0);
+              if (res.data && res.data.length > 0) {
+                allResults.push(res.data[0]);
+              }
+            } catch (err) {
+              console.warn('Failed to fetch specific paper:', q);
+            }
+          }
+          setResults(allResults);
+          setTotal(allResults.length);
+          setOffset(0);
+        } catch (err: any) {
+          setError(err.message || 'Search failed. Please try again.');
+        } finally {
+          setLoading(false);
+        }
+      } else if (payload && typeof payload === 'string') {
+        setQuery(payload);
+        doSearch(payload, 0);
+      }
+    };
+    window.addEventListener('searchDiscover', handleRemoteSearch as any);
+    return () => window.removeEventListener('searchDiscover', handleRemoteSearch as any);
+  }, [doSearch]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
