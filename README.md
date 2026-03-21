@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="https://capsule-render.vercel.app/api?type=waving&color=1e40af&height=200&section=header&text=Abstracts%20Research%20Hub&fontSize=50&fontAlignY=35&fontColor=ffffff" alt="Header" />
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=1e40af&height=200&section=header&text=Abstracts: %20Research%20Hub&fontSize=50&fontAlignY=35&fontColor=ffffff" alt="Header" />
 </div>
 
 <h1 align="center">Abstracts: AI-Powered Research Discovery 🚀</h1>
