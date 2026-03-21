@@ -35,8 +35,6 @@ This project demonstrates strong full-stack capabilities, modern UI/UX sensibili
 ---
 
 ## 🎨 Design & Architecture
-
-Abstracts is designed with a **Premium Modern SaaS** aesthetic inspired by the original [Figma Design](https://www.figma.com/design/LhqME4tTeWU7HZPIsjkn62/Design-ResearchHub-Dashboard):
 - **Color Palette**: Sophisticated dark themes paired with deep blues (`#1e40af`, `#3b82f6`, `#030213`) and elegant typography.
 - **Micro-Interactions**: Powered by modern CSS animations for a fluid, premium user experience.
 - **System Workflow**: React/Vite Frontend ↔ Express Server ↔ MongoDB Atlas.
