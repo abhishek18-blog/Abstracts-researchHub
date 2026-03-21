@@ -19,7 +19,7 @@ Abstracts is a comprehensive web application designed for students and researche
 - **MongoDB Atlas**: Scalable NoSQL database for flexible data modeling.
 - **Mongoose**: Elegant object modeling for Node.js.
 - **JWT & BcryptJS**: Secure authentication and password hashing.
-- **Multer**: Handling multipart form data for PDF uploads.
+- **Multer**: Handling multipart form data for file uploads.
 
 ---
 

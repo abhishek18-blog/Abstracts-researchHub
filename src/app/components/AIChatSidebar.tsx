@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, Upload, X, ChevronLeft, Sparkles, Copy, ThumbsUp, ThumbsDown, Plus, Trash2, MessageSquare, Loader2, Check, BookOpen } from 'lucide-react';
+import { Send, X, ChevronLeft, Sparkles, Copy, ThumbsUp, ThumbsDown, Plus, Trash2, MessageSquare, Loader2, Check, BookOpen } from 'lucide-react';
 import { Badge } from './ui/badge';
-import { chatApi, uploadsApi, aiApi, type Conversation, type ChatMessage } from '../services/api';
+import { chatApi, aiApi, type Conversation, type ChatMessage } from '../services/api';
 
 interface AIChatSidebarProps {
   isOpen: boolean;
@@ -153,64 +153,6 @@ export function AIChatSidebar({ isOpen, onClose }: AIChatSidebarProps) {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const handleSummarizePDF = async (uploadId: string, fileName: string) => {
-    setSending(true);
-    try {
-      // Optimistic: add message about summarization starting
-      const tempUserMsg: ChatMessage = {
-        id: `temp-${Date.now()}`,
-        conversation_id: activeConversationId || 'pending',
-        role: 'user',
-        content: `Please summarize the PDF: "${fileName}"`,
-        created_at: new Date().toISOString(),
-      };
-      setMessages(prev => [...prev, tempUserMsg]);
-
-      const response = await aiApi.summarizePDF(uploadId);
-
-      // If we didn't have a conversation, we should probably have created one by now
-      // but if not, let's just show the response
-      setMessages(prev => [
-        ...prev.filter(m => !m.id.startsWith('temp-')),
-        {
-          id: `user-${Date.now()}`,
-          conversation_id: activeConversationId || '',
-          role: 'user',
-          content: `Please summarize the PDF: "${fileName}"`,
-          created_at: new Date().toISOString(),
-        },
-        {
-          id: `ai-${Date.now()}`,
-          conversation_id: activeConversationId || '',
-          role: 'assistant',
-          content: response.data.summary,
-          created_at: new Date().toISOString(),
-        }
-      ]);
-
-      // Add to database if we have a conversation
-      if (activeConversationId) {
-        await chatApi.sendMessage(activeConversationId, `Please summarize the PDF: "${fileName}"`);
-        // Note: The above is a bit redundant if we want the exact response from Groq,
-        // but it keeps the history. For now, let's just keep the local UI state.
-      }
-    } catch (err) {
-      console.error('Summarization failed:', err);
-      setMessages(prev => [
-        ...prev.filter(m => !m.id.startsWith('temp-')),
-        {
-          id: `err-${Date.now()}`,
-          conversation_id: activeConversationId || '',
-          role: 'assistant',
-          content: "I'm sorry, I failed to summarize that PDF. Please ensure it's a valid text-based PDF.",
-          created_at: new Date().toISOString(),
-        }
-      ]);
-    } finally {
-      setSending(false);
-    }
-  };
-
   const handleSuggestPapers = async (explicitTopic?: string) => {
     if (sending) return;
 
@@ -262,27 +204,6 @@ export function AIChatSidebar({ isOpen, onClose }: AIChatSidebarProps) {
     } finally {
       setSending(false);
     }
-  };
-
-  const handleUploadPDF = async () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.pdf';
-    input.onchange = async (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) return;
-      try {
-        setLoading(true);
-        const response = await uploadsApi.upload(file);
-        // After upload, trigger summarization
-        handleSummarizePDF(response.data.id, file.name);
-      } catch (err) {
-        console.error('Upload failed:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    input.click();
   };
 
   if (!isOpen) return null;
@@ -532,7 +453,7 @@ export function AIChatSidebar({ isOpen, onClose }: AIChatSidebarProps) {
 
       {/* Footer Actions & Input */}
       <div className="mt-auto bg-background/50 backdrop-blur-xl border-t border-border/50 pb-8 pt-6 px-6 relative z-10 transition-all focus-within:bg-background">
-        {/* Quick Actions (PDF Upload & Suggestions) */}
+        {/* Quick Actions (Suggestions) */}
         {!inputValue.trim() && messages.length > 0 && (
           <div className="mb-6 animate-in slide-in-from-bottom-2 duration-300">
             <div className="flex items-center gap-2 mb-4">
@@ -541,19 +462,10 @@ export function AIChatSidebar({ isOpen, onClose }: AIChatSidebarProps) {
               <span className="h-px flex-1 bg-border/50"></span>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <button
-                onClick={handleUploadPDF}
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-card border border-primary/10 rounded-2xl hover:border-primary/30 hover:bg-primary/5 transition-all text-foreground group"
-              >
-                <div className="p-1.5 bg-blue-500/10 rounded-lg group-hover:bg-blue-500/20 transition-colors">
-                  <Upload className="w-3.5 h-3.5 text-blue-500" />
-                </div>
-                <span className="text-xs font-bold tracking-tight">Summarize PDF</span>
-              </button>
+            <div className="mb-4">
               <button
                 onClick={() => setIsSuggestionMode(true)}
-                className="flex items-center justify-center gap-2 px-4 py-3 bg-card border border-primary/10 rounded-2xl hover:border-primary/30 hover:bg-primary/5 transition-all text-foreground group"
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-card border border-primary/10 rounded-2xl hover:border-primary/30 hover:bg-primary/5 transition-all text-foreground group"
               >
                 <div className="p-1.5 bg-purple-500/10 rounded-lg group-hover:bg-purple-500/20 transition-colors">
                   <BookOpen className="w-3.5 h-3.5 text-purple-600" />
