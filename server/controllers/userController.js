@@ -71,3 +71,45 @@ export const uploadAvatar = async (req, res) => {
     res.status(500).json({ success: false, error: `Upload failed: ${error.message}` });
   }
 };
+
+import bcrypt from 'bcryptjs';
+
+export const addPassword = async (req, res) => {
+  try {
+    const { password } = req.body;
+    if (!password || password.length < 6) {
+      return res.status(400).json({ success: false, error: 'Invalid password' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = await User.findByIdAndUpdate(req.userId, { password: hashedPassword }, { new: true });
+    
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    res.json({ success: true, message: 'Password added successfully' });
+  } catch (error) {
+    console.error('Error adding password:', error);
+    res.status(500).json({ success: false, error: 'Failed to add password' });
+  }
+};
+
+export const deleteAccount = async (req, res) => {
+  try {
+    const user = await User.findByIdAndDelete(req.userId);
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    // Clean up associated data
+    await SavedPaper.deleteMany({ user_id: req.userId });
+    await Project.deleteMany({ user_id: req.userId });
+    await ReadingProgress.deleteMany({ user_id: req.userId });
+
+    res.json({ success: true, message: 'Account deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting account:', error);
+    res.status(500).json({ success: false, error: 'Failed to delete account' });
+  }
+};

@@ -224,6 +224,12 @@ export const userApi = {
       body: formData,
     });
   },
+
+  addPassword: (password: string) =>
+    request<{ message: string }>('/user/password', { method: 'POST', body: JSON.stringify({ password }) }),
+
+  deleteAccount: () =>
+    request<{ message: string }>('/user/account', { method: 'DELETE' }),
 };
 
 // ─── Auth ────────────────────────────────────────────────────────────────────

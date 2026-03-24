@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Mail, Lock, User, ArrowRight, Loader2 } from 'lucide-react';
 import { BASE_URL } from '../services/api';
 import { BrandLogo } from './BrandLogo';
+import { auth } from '../services/firebase';
+import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
 
 interface AuthScreenProps {
   onLogin: (token: string, user: any) => void;
@@ -54,6 +56,33 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
       onLogin(data.token, data.user);
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      const token = await result.user.getIdToken();
+      
+      const res = await fetch(`${BASE_URL}/auth/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Google authentication failed');
+      }
+
+      onLogin(data.token, data.user);
+    } catch (err: any) {
+      setError(err.message || 'Failed to sign in with Google');
     } finally {
       setLoading(false);
     }
@@ -178,6 +207,28 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><ArrowRight className="w-5 h-5" /> {isForgot ? 'Override Security' : (isLogin ? 'Initialize Portal' : 'Register Fellowship')}</>}
             </button>
           </form>
+
+          {!isForgot && (
+            <div className="mt-6 flex flex-col items-center">
+              <div className="relative w-full flex items-center justify-center my-4">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-white/10"></div>
+                </div>
+                <div className="relative px-3 bg-slate-900 text-xs font-medium text-white/30 tracking-widest uppercase">
+                  OR
+                </div>
+              </div>
+              <button
+                onClick={handleGoogleSignIn}
+                type="button"
+                disabled={loading}
+                className="w-full py-5 bg-white text-slate-900 hover:bg-slate-200 rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-2xl transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-50"
+              >
+                <img src="https://www.google.com/favicon.ico" alt="Google" className="w-4 h-4" />
+                Sign in with Google
+              </button>
+            </div>
+          )}
 
           <div className="mt-10 pt-10 border-t border-white/5 text-center">
             <button

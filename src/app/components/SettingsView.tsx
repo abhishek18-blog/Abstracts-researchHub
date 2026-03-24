@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, Mail, GraduationCap, Save, Loader2, Check, BookOpen, FolderOpen, Clock, Camera, Upload } from 'lucide-react';
+import { User, Mail, GraduationCap, Save, Loader2, Check, BookOpen, FolderOpen, Clock, Camera, Upload, Lock, Trash2, AlertTriangle } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { userApi, type UserProfile } from '../services/api';
 
@@ -15,6 +15,13 @@ export function SettingsView() {
     role: '',
     avatar_initials: '',
   });
+
+  const [newPassword, setNewPassword] = useState('');
+  const [settingPassword, setSettingPassword] = useState(false);
+  const [passwordSuccess, setPasswordSuccess] = useState('');
+  
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -63,6 +70,39 @@ export function SettingsView() {
       alert('Failed to upload photo. Please try again.');
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handleSetPassword = async () => {
+    if (!newPassword || newPassword.length < 6) {
+      alert('Password must be at least 6 characters long.');
+      return;
+    }
+    try {
+      setSettingPassword(true);
+      await userApi.addPassword(newPassword);
+      setNewPassword('');
+      setPasswordSuccess('Password saved successfully');
+      setTimeout(() => setPasswordSuccess(''), 3000);
+    } catch (err) {
+      console.error('Failed to set password:', err);
+      alert('Failed to save password.');
+    } finally {
+      setSettingPassword(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    try {
+      setDeleting(true);
+      await userApi.deleteAccount();
+      localStorage.removeItem('token');
+      window.location.reload();
+    } catch (err) {
+      console.error('Failed to delete account:', err);
+      alert('Failed to delete account.');
+      setDeleting(false);
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -218,6 +258,82 @@ export function SettingsView() {
               )}
               {saving ? 'Syncing...' : 'Save Profile'}
             </button>
+          </div>
+        </div>
+
+        {/* Security Settings Card */}
+        <div className="bg-card border border-primary/10 rounded-3xl p-8 mb-8 shadow-xl shadow-black/5 relative overflow-hidden">
+          <div className="mb-6">
+            <h3 className="text-xl font-bold text-foreground">Security & Access</h3>
+            <p className="text-muted-foreground text-sm">Manage your password and account status</p>
+          </div>
+
+          <div className="space-y-6">
+            {/* Set Password */}
+            <div className="flex flex-col md:flex-row md:items-end gap-4">
+              <div className="flex-1">
+                <label className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-muted-foreground mb-3">
+                  <Lock className="w-3.5 h-3.5 text-primary" /> Set / Update Password
+                </label>
+                <input
+                  type="password"
+                  placeholder="Enter new password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full px-5 py-4 bg-background border border-border rounded-2xl focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary text-foreground font-medium transition-all"
+                />
+              </div>
+              <button
+                onClick={handleSetPassword}
+                disabled={settingPassword || !newPassword}
+                className="px-6 py-4 bg-primary/10 text-primary hover:bg-primary/20 rounded-2xl font-black uppercase tracking-widest text-xs transition-all disabled:opacity-50 whitespace-nowrap h-[56px]"
+              >
+                {settingPassword ? <Loader2 className="w-4 h-4 animate-spin inline mr-2" /> : null}
+                Save Password
+              </button>
+            </div>
+            {passwordSuccess && (
+              <p className="text-emerald-500 text-sm font-medium">{passwordSuccess}</p>
+            )}
+
+            {/* Delete Account */}
+            <div className="pt-6 border-t border-border">
+              <h4 className="text-lg font-bold text-red-500 mb-2 flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5" /> Danger Zone
+              </h4>
+              <p className="text-muted-foreground text-sm mb-4">
+                Permanently delete your account and all associated data. This action cannot be undone.
+              </p>
+              
+              {!showDeleteConfirm ? (
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="flex items-center gap-2 px-6 py-3 bg-red-500/10 text-red-500 hover:bg-red-500/20 rounded-xl font-black uppercase tracking-widest text-xs transition-all"
+                >
+                  <Trash2 className="w-4 h-4" /> Delete Account
+                </button>
+              ) : (
+                <div className="p-4 border border-red-500/30 bg-red-500/5 rounded-2xl animate-in fade-in">
+                  <p className="text-foreground font-medium mb-4">Are you absolutely sure you want to delete your account?</p>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={handleDeleteAccount}
+                      disabled={deleting}
+                      className="px-6 py-3 bg-red-500 text-white hover:bg-red-600 rounded-xl font-black uppercase tracking-widest text-xs transition-all disabled:opacity-50"
+                    >
+                      {deleting ? 'Deleting...' : 'Yes, Delete My Account'}
+                    </button>
+                    <button
+                      onClick={() => setShowDeleteConfirm(false)}
+                      disabled={deleting}
+                      className="px-6 py-3 bg-background border border-border text-foreground hover:bg-accent rounded-xl font-black uppercase tracking-widest text-xs transition-all"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

@@ -84,3 +84,43 @@ export const forgotPassword = async (req, res) => {
     res.status(500).json({ success: false, error: 'Failed to reset password' });
   }
 };
+
+import admin from '../firebaseAdmin.js';
+
+export const googleLogin = async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) {
+      return res.status(400).json({ success: false, error: 'Google Token required' });
+    }
+
+    if (!admin.apps.length) {
+      return res.status(500).json({ success: false, error: 'Firebase Admin not initialized on server. Add credentials to .env' });
+    }
+
+    // Verify token with Firebase Admin
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    const { email, name, picture } = decodedToken;
+
+    let user = await User.findOne({ email });
+    if (!user) {
+      // Create a user without a password hash since they registered via Google.
+      user = new User({
+        name: name || 'Google User',
+        email,
+        password: '', // Blank password placeholder. Can be updated later by User.
+        role: 'Student',
+        avatar_initials: name ? name.substring(0, 2).toUpperCase() : 'U',
+        avatar_url: picture || ''
+      });
+      await user.save();
+    }
+
+    const jwtToken = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '7d' });
+    res.json({ success: true, token: jwtToken, user });
+
+  } catch (error) {
+    console.error('Google login error:', error);
+    res.status(401).json({ success: false, error: 'Failed to verify Google Token' });
+  }
+};
