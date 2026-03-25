@@ -1,4 +1,4 @@
-import { BookOpen, FolderOpen, BookmarkCheck, Settings, Globe, Users, Loader2, LogOut, Sun, Moon } from 'lucide-react';
+import { BookOpen, FolderOpen, BookmarkCheck, Settings, Globe, Users, Loader2, LogOut, Sun, Moon, Newspaper } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { userApi, type UserProfile } from '../services/api';
 import { useTheme } from '../context/ThemeContext';
@@ -25,12 +25,13 @@ export function LeftSidebar({ activeTab, onTabChange }: LeftSidebarProps) {
   };
 
   const navItems = [
-    { id: 'library', label: 'Library', icon: BookOpen },
-    { id: 'projects', label: 'Projects', icon: FolderOpen },
-    { id: 'saved', label: 'Saved Papers', icon: BookmarkCheck, badge: user?.stats?.savedPapers },
-    { id: 'discover', label: 'Discover', icon: Globe },
-    { id: 'community', label: 'Community', icon: Users },
-    { id: 'settings', label: 'Settings', icon: Settings },
+    { id: 'library',  label: 'Library',      icon: BookOpen },
+    { id: 'projects', label: 'Projects',      icon: FolderOpen },
+    { id: 'saved',    label: 'Saved Papers',  icon: BookmarkCheck, badge: user?.stats?.savedPapers },
+    { id: 'foryou',   label: 'For You',       icon: Newspaper },
+    { id: 'discover', label: 'Discover',      icon: Globe },
+    { id: 'community',label: 'Community',     icon: Users },
+    { id: 'settings', label: 'Settings',      icon: Settings },
   ];
 
   return (

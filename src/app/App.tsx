@@ -6,6 +6,7 @@ import { SettingsView } from './components/SettingsView';
 import { PaperDetailModal } from './components/PaperDetailModal';
 import { CommunityView } from './components/CommunityView';
 import { DiscoverView } from './components/DiscoverView';
+import { ForYouView } from './components/ForYouView';
 import { MessageSquare } from 'lucide-react';
 import { AuthScreen } from './components/AuthScreen';
 import { ThemeProvider } from './context/ThemeContext';
@@ -54,9 +55,9 @@ export default function App() {
 
   const renderMain = () => {
     switch (activeTab) {
-      case 'settings': return <SettingsView />;
+      case 'settings':  return <SettingsView />;
       case 'community': return <CommunityView onPaperSelect={setSelectedPaper} />;
-      case 'discover': return <DiscoverView />;
+      // 'foryou' and 'discover' are always mounted below — not rendered here
       default: return <CenterFeed activeTab={activeTab} onPaperSelect={setSelectedPaper} />;
     }
   };
@@ -67,8 +68,19 @@ export default function App() {
         {/* Left Sidebar */}
         <LeftSidebar activeTab={activeTab} onTabChange={setActiveTab} />
 
-        {/* Center Content */}
-        {renderMain()}
+        {/* Center Content — switch-rendered tabs */}
+        {!['foryou', 'discover'].includes(activeTab) && renderMain()}
+
+        {/* Always-mounted views — preserved across tab switches so search state survives */}
+        <div className={`flex-1 overflow-hidden ${activeTab === 'foryou' ? 'flex' : 'hidden'}`}>
+          <ForYouView
+            userInterests={user?.interests || []}
+            onGoToSettings={() => setActiveTab('settings')}
+          />
+        </div>
+        <div className={`flex-1 overflow-hidden ${activeTab === 'discover' ? 'flex' : 'hidden'}`}>
+          <DiscoverView />
+        </div>
 
         {/* AI Chat Sidebar */}
         <AIChatSidebar isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
