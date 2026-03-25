@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { User, Mail, GraduationCap, Save, Loader2, Check, BookOpen, FolderOpen, Clock, Camera, Upload, Lock, Trash2, AlertTriangle } from 'lucide-react';
+import { User, Mail, GraduationCap, Save, Loader2, Check, BookOpen, FolderOpen, Clock, Camera, Upload, Lock, Trash2, AlertTriangle, Sparkles } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { userApi, type UserProfile } from '../services/api';
+import { InterestsModal } from './InterestsModal';
 
 export function SettingsView() {
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -22,6 +23,7 @@ export function SettingsView() {
   
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showInterestsModal, setShowInterestsModal] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -237,6 +239,32 @@ export function SettingsView() {
                 />
               </div>
             </div>
+            
+            {/* Interests Section */}
+            <div className="pt-6 border-t border-border mt-6">
+              <div className="flex items-center justify-between mb-4">
+                <label className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-muted-foreground">
+                  <Sparkles className="w-3.5 h-3.5 text-primary" /> Research Interests
+                </label>
+                <button
+                  onClick={() => setShowInterestsModal(true)}
+                  className="text-xs font-bold text-primary hover:text-primary/80 transition-colors"
+                >
+                  Edit Interests
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {user?.interests && user.interests.length > 0 ? (
+                  user.interests.map(interest => (
+                    <Badge key={interest} variant="secondary" className="bg-primary/10 text-primary border-none px-3 py-1 font-bold text-xs">
+                      {interest}
+                    </Badge>
+                  ))
+                ) : (
+                  <span className="text-sm text-muted-foreground italic">No interests selected.</span>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Save Button */}
@@ -337,6 +365,16 @@ export function SettingsView() {
           </div>
         </div>
       </div>
+
+      {showInterestsModal && (
+        <InterestsModal 
+          initialInterests={user?.interests || []}
+          onComplete={(interests) => {
+            setUser(prev => prev ? { ...prev, interests, hasSelectedInterests: true } : prev);
+            setShowInterestsModal(false);
+          }}
+        />
+      )}
     </div>
   );
 }

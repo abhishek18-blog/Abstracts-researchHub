@@ -10,6 +10,7 @@ import { MessageSquare } from 'lucide-react';
 import { AuthScreen } from './components/AuthScreen';
 import { ThemeProvider } from './context/ThemeContext';
 import { userApi } from './services/api';
+import { InterestsModal } from './components/InterestsModal';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('library');
@@ -89,6 +90,15 @@ export default function App() {
               Open AI Assistant
             </span>
           </button>
+        )}
+
+        {/* Interests Modal */}
+        {user && !user.hasSelectedInterests && (
+          <InterestsModal 
+            onComplete={(interests) => {
+              setUser({ ...user, interests, hasSelectedInterests: true });
+            }}
+          />
         )}
       </div>
     </ThemeProvider>

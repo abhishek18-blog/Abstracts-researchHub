@@ -201,6 +201,8 @@ export interface UserProfile {
   role: string;
   avatar_initials: string;
   avatar_url?: string;
+  interests?: string[];
+  hasSelectedInterests?: boolean;
   stats: {
     savedPapers: number;
     projects: number;

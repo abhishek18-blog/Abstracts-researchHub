@@ -38,6 +38,10 @@ export const updateUserProfile = async (req, res) => {
     if (role !== undefined) updates.role = role;
     if (avatar_initials !== undefined) updates.avatar_initials = avatar_initials;
     if (avatar_url !== undefined) updates.avatar_url = avatar_url;
+    
+    // Add interests array handling
+    if (req.body.interests !== undefined) updates.interests = req.body.interests;
+    if (req.body.hasSelectedInterests !== undefined) updates.hasSelectedInterests = req.body.hasSelectedInterests;
 
     const updated = await User.findByIdAndUpdate(req.userId, updates, { new: true });
     if (!updated) {

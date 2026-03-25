@@ -34,6 +34,8 @@ const userSchema = new mongoose.Schema({
   role: { type: String, default: 'Student' },
   avatar_initials: { type: String },
   avatar_url: { type: String },
+  interests: [{ type: String }],
+  hasSelectedInterests: { type: Boolean, default: false },
 }, schemaOptions);
 
 const User = mongoose.model('User', userSchema);
