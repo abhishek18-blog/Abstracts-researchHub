@@ -1,0 +1,86 @@
+# Activity Diagram — Research Hub
+
+This diagram illustrates the main user workflows in the Research Hub application.
+
+```mermaid
+flowchart TD
+    Start([🚀 User Opens App]) --> CheckToken{JWT Token\nin localStorage?}
+
+    CheckToken -- No --> AuthScreen[Show Auth Screen]
+    AuthScreen --> AuthChoice{Choose Auth Method}
+    AuthChoice -- Email/Password --> Login[Enter Email & Password]
+    AuthChoice -- Google Sign-In --> GoogleOAuth[Firebase Google OAuth]
+    AuthChoice -- Register --> Register[Fill Name / Email / Password]
+
+    Login --> ValidateCreds{Valid Credentials?}
+    Register --> ValidateCreds
+    GoogleOAuth --> ValidateCreds
+
+    ValidateCreds -- No --> AuthError[Show Error Message] --> AuthScreen
+    ValidateCreds -- Yes --> SaveToken[Save JWT to localStorage]
+
+    CheckToken -- Yes --> FetchProfile[Fetch User Profile via /api/user]
+    SaveToken --> FetchProfile
+
+    FetchProfile --> ProfileOK{Profile Valid?}
+    ProfileOK -- No --> ClearToken[Clear Token] --> AuthScreen
+    ProfileOK -- Yes --> CheckInterests{Has Selected\nInterests?}
+
+    CheckInterests -- No --> InterestsModal[Show Interests Modal]
+    InterestsModal --> SelectInterests[User Selects Research Interests]
+    SelectInterests --> SaveInterests[POST /api/user/interests] --> MainApp
+
+    CheckInterests -- Yes --> MainApp[Load Main Application]
+
+    MainApp --> NavChoice{User Navigates To}
+
+    NavChoice -- Library --> LibraryView[Center Feed: Saved Papers & Projects]
+    LibraryView --> ViewPaper[Click Paper → Open Paper Detail Modal]
+    LibraryView --> CreateProject[Create New Project]
+    CreateProject --> FillProjectForm[Enter Name, Description, Color] --> SaveProject[POST /api/projects]
+    ViewPaper --> SavePaper[Save Paper to Library] --> SavePaper2[POST /api/papers/save]
+    ViewPaper --> AddToProject[Add to Project] --> UpdateProject[PATCH /api/projects/:id]
+
+    NavChoice -- Discover --> DiscoverView[Search Research Papers]
+    DiscoverView --> EnterQuery[Enter Search Query]
+    EnterQuery --> SearchAPI[GET /api/search?q=...]
+    SearchAPI --> DisplayResults[Show Paper Cards]
+    DisplayResults --> ViewPaper
+
+    NavChoice -- For You --> ForYouView[Personalized Feed]
+    ForYouView --> FetchPersonalized[GET /api/search/personalized]
+    FetchPersonalized --> DisplayPersonalized[Show Recommended Papers]
+    DisplayPersonalized --> ViewPaper
+
+    NavChoice -- Community --> CommunityView[Browse / Join Communities]
+    CommunityView --> JoinCommunity[Join Public Community]
+    CommunityView --> RequestJoin[Request to Join Private Community]
+    CommunityView --> CreateCommunity[Create New Community]
+    CommunityView --> ViewPosts[View Community Posts]
+    ViewPosts --> LikePost[Like Post] --> PatchLike[PATCH /api/community/posts/:id/like]
+    ViewPosts --> CreatePost[Create Post]
+    CreatePost --> SubmitPost[POST /api/community/:id/posts]
+
+    NavChoice -- AI Chat --> AIChatSidebar[Open AI Chat Sidebar]
+    AIChatSidebar --> UploadPDF{Upload PDF?}
+    UploadPDF -- Yes --> UploadFile[POST /api/upload] --> ExtractPDF[Extract PDF Content]
+    UploadPDF -- No --> TypeMessage[Type Message]
+    ExtractPDF --> TypeMessage
+    TypeMessage --> SendMessage[POST /api/ai/chat]
+    SendMessage --> ReceiveResponse[Display AI Response with Citations]
+    ReceiveResponse --> ContinueChat{Continue\nConversation?}
+    ContinueChat -- Yes --> TypeMessage
+    ContinueChat -- No --> AIChatSidebar
+
+    NavChoice -- Settings --> SettingsView[User Settings]
+    SettingsView --> UpdateProfile[Update Name / Avatar]
+    SettingsView --> ChangePassword[Change Password]
+    SettingsView --> DeleteAccount[Delete Account]
+    UpdateProfile --> PutUser[PUT /api/user]
+    ChangePassword --> PostPassword[POST /api/user/password]
+    DeleteAccount --> DeleteUser[DELETE /api/user/account]
+
+    End([🏁 Session End / Logout])
+    DeleteUser --> End
+    NavChoice --> End
+```
