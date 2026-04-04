@@ -3,7 +3,7 @@ import { Mail, Lock, User, ArrowRight, Loader2 } from 'lucide-react';
 import { BASE_URL } from '../services/api';
 import { BrandLogo } from './BrandLogo';
 import { auth } from '../services/firebase';
-import { GoogleAuthProvider, signInWithPopup } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithPopup, sendPasswordResetEmail } from 'firebase/auth';
 
 interface AuthScreenProps {
   onLogin: (token: string, user: any) => void;
@@ -31,13 +31,15 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
         const res = await fetch(`${BASE_URL}/auth/forgot-password`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, newPassword }),
+          body: JSON.stringify({ email }),
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Reset failed');
-        setSuccess('Password updated! You can now login.');
-        setIsForgot(false);
-        setPassword(newPassword);
+        if (!res.ok) throw new Error(data.error || 'Reset preparation failed');
+        
+        await sendPasswordResetEmail(auth, email);
+
+        setSuccess('Reset email sent via Firebase! Check your inbox.');
+        setTimeout(() => setIsForgot(false), 4000);
         return;
       }
 
@@ -171,40 +173,42 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <div className="flex justify-between items-center px-1">
-                <label className="text-[10px] font-black text-white/30 uppercase tracking-widest">
-                  {isForgot ? 'Override Code' : 'Access Key'}
-                </label>
-                {!isForgot && isLogin && (
-                  <button
-                    type="button"
-                    onClick={() => setIsForgot(true)}
-                    className="text-[10px] font-black text-blue-400 hover:text-blue-300 uppercase tracking-wider"
-                  >
-                    Lost Key?
-                  </button>
-                )}
+            {!isForgot && (
+              <div className="space-y-2">
+                <div className="flex justify-between items-center px-1">
+                  <label className="text-[10px] font-black text-white/30 uppercase tracking-widest">
+                    Access Key
+                  </label>
+                  {isLogin && (
+                    <button
+                      type="button"
+                      onClick={() => setIsForgot(true)}
+                      className="text-[10px] font-black text-blue-400 hover:text-blue-300 uppercase tracking-wider"
+                    >
+                      Lost Key?
+                    </button>
+                  )}
+                </div>
+                <div className="relative group">
+                  <Lock className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-white/20 group-focus-within:text-blue-400 transition-colors" />
+                  <input
+                    type="password"
+                    required
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    className="w-full pl-14 pr-6 py-4.5 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-white/10 focus:ring-2 focus:ring-blue-500/50 outline-none transition-all"
+                    placeholder="••••••••"
+                  />
+                </div>
               </div>
-              <div className="relative group">
-                <Lock className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-white/20 group-focus-within:text-blue-400 transition-colors" />
-                <input
-                  type="password"
-                  required
-                  value={isForgot ? newPassword : password}
-                  onChange={e => isForgot ? setNewPassword(e.target.value) : setPassword(e.target.value)}
-                  className="w-full pl-14 pr-6 py-4.5 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-white/10 focus:ring-2 focus:ring-blue-500/50 outline-none transition-all"
-                  placeholder="••••••••"
-                />
-              </div>
-            </div>
+            )}
 
             <button
               type="submit"
               disabled={loading}
               className="w-full py-5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-2xl shadow-blue-600/20 transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-50"
             >
-              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><ArrowRight className="w-5 h-5" /> {isForgot ? 'Override Security' : (isLogin ? 'Initialize Portal' : 'Register Fellowship')}</>}
+              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><ArrowRight className="w-5 h-5" /> {isForgot ? 'Send Reset Email' : (isLogin ? 'Initialize Portal' : 'Register Fellowship')}</>}
             </button>
           </form>
 
