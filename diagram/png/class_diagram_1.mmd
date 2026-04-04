@@ -1,0 +1,152 @@
+classDiagram
+    direction TB
+
+    class User {
+        +String id
+        +String name
+        +String email
+        +String password
+        +String role
+        +String avatar_initials
+        +String avatar_url
+        +String[] interests
+        +Boolean hasSelectedInterests
+        +Date created_at
+        +Date updated_at
+    }
+
+    class Paper {
+        +String id
+        +String title
+        +String[] authors
+        +String year
+        +Number citations
+        +String[] tags
+        +String abstract
+        +String pdf_url
+        +String source_url
+        +String doi
+        +String external_id
+        +Date created_at
+        +Date updated_at
+    }
+
+    class Project {
+        +String id
+        +String user_id
+        +String name
+        +String description
+        +String color
+        +String[] papers
+        +Date created_at
+        +Date updated_at
+    }
+
+    class SavedPaper {
+        +String id
+        +String user_id
+        +String paper_id
+        +Date saved_at
+    }
+
+    class ReadingProgress {
+        +String id
+        +String user_id
+        +String paper_id
+        +Number progress
+        +Date last_read_at
+    }
+
+    class Conversation {
+        +String id
+        +String user_id
+        +String title
+        +Date created_at
+        +Date updated_at
+    }
+
+    class Message {
+        +String id
+        +String conversation_id
+        +String role
+        +String content
+        +Date created_at
+        +Date updated_at
+    }
+
+    class Upload {
+        +String id
+        +String user_id
+        +String filename
+        +String original_name
+        +String mime_type
+        +Number size_bytes
+        +String paper_id
+        +Date created_at
+        +Date updated_at
+    }
+
+    class Community {
+        +String id
+        +String name
+        +String description
+        +String subject
+        +String icon
+        +String created_by
+        +Boolean is_private
+        +Boolean allow_invites
+        +Date created_at
+        +Date updated_at
+    }
+
+    class CommunityMember {
+        +String id
+        +String community_id
+        +String user_id
+        +String role
+        +Date joined_at
+    }
+
+    class JoinRequest {
+        +String id
+        +String community_id
+        +String user_id
+        +String status
+        +Date created_at
+        +Date updated_at
+    }
+
+    class CommunityPost {
+        +String id
+        +String community_id
+        +String user_id
+        +String content
+        +String paper_id
+        +Number likes
+        +Date created_at
+        +Date updated_at
+    }
+
+    %% ── Relationships ────────────────────────────────
+    User "1" --> "0..*" Project       : owns
+    User "1" --> "0..*" SavedPaper    : saves
+    User "1" --> "0..*" ReadingProgress : tracks
+    User "1" --> "0..*" Conversation  : has
+    User "1" --> "0..*" Upload        : uploads
+    User "1" --> "0..*" Community     : creates
+    User "1" --> "0..*" CommunityMember : joins
+    User "1" --> "0..*" JoinRequest   : requests
+    User "1" --> "0..*" CommunityPost : posts
+
+    Paper "1" --> "0..*" SavedPaper      : saved via
+    Paper "1" --> "0..*" ReadingProgress : tracked via
+    Paper "0..1" --> "0..*" Upload       : attached to
+    Paper "0..1" --> "0..*" CommunityPost : shared in
+
+    Project "1" --> "0..*" Paper          : contains
+
+    Conversation "1" --> "0..*" Message   : contains
+
+    Community "1" --> "0..*" CommunityMember : has
+    Community "1" --> "0..*" JoinRequest     : receives
+    Community "1" --> "0..*" CommunityPost   : hosts

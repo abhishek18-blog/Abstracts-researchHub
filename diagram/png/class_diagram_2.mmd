@@ -1,0 +1,95 @@
+classDiagram
+    direction LR
+
+    class AuthController {
+        +register(req, res) Promise
+        +login(req, res) Promise
+        +googleLogin(req, res) Promise
+        +forgotPassword(req, res) Promise
+        +getMe(req, res) Promise
+    }
+
+    class UserController {
+        +getUserProfile(req, res) Promise
+        +updateUserProfile(req, res) Promise
+        +uploadAvatar(req, res) Promise
+        +addPassword(req, res) Promise
+        +deleteAccount(req, res) Promise
+    }
+
+    class PapersController {
+        +getSavedPapers(req, res) Promise
+        +savePaper(req, res) Promise
+        +unsavePaper(req, res) Promise
+        +getPaperById(req, res) Promise
+        +getReadingProgress(req, res) Promise
+        +updateReadingProgress(req, res) Promise
+    }
+
+    class SearchController {
+        +searchPapers(req, res) Promise
+        +getPersonalizedFeed(req, res) Promise
+    }
+
+    class ProjectsController {
+        +getProjects(req, res) Promise
+        +createProject(req, res) Promise
+        +getProjectById(req, res) Promise
+        +updateProject(req, res) Promise
+        +deleteProject(req, res) Promise
+        +addPaperToProject(req, res) Promise
+        +removePaperFromProject(req, res) Promise
+    }
+
+    class CommunityController {
+        +getCommunities(req, res) Promise
+        +createCommunity(req, res) Promise
+        +joinCommunity(req, res) Promise
+        +requestJoin(req, res) Promise
+        +leaveCommunity(req, res) Promise
+        +getCommunityPosts(req, res) Promise
+        +createPost(req, res) Promise
+        +likePost(req, res) Promise
+        +getJoinRequests(req, res) Promise
+        +handleJoinRequest(req, res) Promise
+    }
+
+    class ChatController {
+        +getConversations(req, res) Promise
+        +createConversation(req, res) Promise
+        +getMessages(req, res) Promise
+        +deleteConversation(req, res) Promise
+    }
+
+    class AIController {
+        +chat(req, res) Promise
+    }
+
+    class UploadController {
+        +uploadFile(req, res) Promise
+        +getUploads(req, res) Promise
+    }
+
+    class StatsController {
+        +getStats(req, res) Promise
+    }
+
+    class AuthMiddleware {
+        +authMiddleware(req, res, next) void
+        -verifyJWT(token) DecodedToken
+    }
+
+    class FirebaseAdmin {
+        +verifyIdToken(idToken) DecodedToken
+    }
+
+    AuthController ..> FirebaseAdmin   : uses (Google login)
+    AuthController ..> AuthMiddleware  : used by route
+    UserController ..> AuthMiddleware  : protected by
+    PapersController ..> AuthMiddleware : protected by
+    SearchController ..> AuthMiddleware : protected by
+    ProjectsController ..> AuthMiddleware : protected by
+    CommunityController ..> AuthMiddleware : protected by
+    ChatController ..> AuthMiddleware  : protected by
+    AIController ..> AuthMiddleware    : protected by
+    UploadController ..> AuthMiddleware : protected by

@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { User } from '../models/index.js';
+import admin from '../firebaseAdmin.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_key';
 
@@ -41,7 +42,27 @@ export const login = async (req, res) => {
       return res.status(401).json({ success: false, error: 'Invalid credentials' });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    let isMatch = await bcrypt.compare(password, user.password);
+
+    const firebaseApiKey = process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_API_KEY || "AIzaSyAqkzkEdNwJamIWv3UM0bw9zGD4wRqI3hc";
+
+    if (!isMatch && firebaseApiKey) {
+      try {
+        const fireRes = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${firebaseApiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, returnSecureToken: true })
+        });
+        if (fireRes.ok) {
+          isMatch = true;
+          user.password = await bcrypt.hash(password, 10);
+          await user.save();
+        }
+      } catch (e) {
+        // ignore fallback errors
+      }
+    }
+
     if (!isMatch) {
       return res.status(401).json({ success: false, error: 'Invalid credentials' });
     }
@@ -68,24 +89,31 @@ export const getMe = async (req, res) => {
 };
 export const forgotPassword = async (req, res) => {
   try {
-    const { email, newPassword } = req.body;
+    const { email } = req.body;
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(404).json({ success: false, error: 'User not found' });
+      return res.status(404).json({ success: false, error: 'User not found in our records' });
     }
 
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-    user.password = hashedPassword;
-    await user.save();
+    if (admin && admin.apps.length) {
+      try {
+        await admin.auth().getUserByEmail(email);
+      } catch (err) {
+        if (err.code === 'auth/user-not-found') {
+          // Create a placeholder Firebase user so they can receive reset emails
+          await admin.auth().createUser({ email, displayName: user.name });
+        } else {
+          console.error("Firebase admin error:", err);
+        }
+      }
+    }
 
-    res.json({ success: true, message: 'Password updated successfully' });
+    res.json({ success: true, message: 'Ready for Firebase reset' });
   } catch (error) {
     console.error('Forgot password error:', error);
-    res.status(500).json({ success: false, error: 'Failed to reset password' });
+    res.status(500).json({ success: false, error: 'Failed to process forgot password' });
   }
 };
-
-import admin from '../firebaseAdmin.js';
 
 export const googleLogin = async (req, res) => {
   try {

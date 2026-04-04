@@ -1,0 +1,34 @@
+sequenceDiagram
+    actor User
+    participant FE as Frontend (React)
+    participant BE as Backend (Express)
+    participant Gemini as Google Gemini AI
+    participant DB as MongoDB
+
+    User->>FE: Open AI Chat Sidebar
+    FE->>BE: GET /api/chat/conversations
+    BE->>DB: Find conversations by user_id
+    DB-->>BE: Conversation list
+    BE-->>FE: 200 [ Conversation[] ]
+    FE->>FE: Render conversation list
+
+    opt Upload PDF
+        User->>FE: Select PDF file → click Upload
+        FE->>BE: POST /api/upload (multipart/form-data)
+        BE->>BE: Extract text from PDF (multer)
+        BE->>DB: Insert Upload document
+        DB-->>BE: Upload record
+        BE-->>FE: 200 { uploadId, extractedText }
+        FE->>FE: Store context for chat session
+    end
+
+    User->>FE: Type message → press Send
+    FE->>BE: POST /api/ai/chat { conversationId, message, context? }
+    BE->>DB: Save user message to Message collection
+    DB-->>BE: Saved message
+    BE->>Gemini: Generate response with conversation history + context
+    Gemini-->>BE: AI response text
+    BE->>DB: Save AI response message
+    DB-->>BE: Saved message
+    BE-->>FE: 200 { reply, citations? }
+    FE->>FE: Append AI reply to chat UI

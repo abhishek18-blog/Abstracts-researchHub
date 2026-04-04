@@ -1,0 +1,51 @@
+flowchart LR
+    %% ── Actors ──────────────────────────────────────────────────────────────
+    Guest(["👤 Guest"])
+    AuthUser(["👥 Authenticated User"])
+    Admin(["🔑 Community Admin"])
+    GeminiAI(["🤖 Gemini AI\n(External)"])
+    SemanticScholar(["📚 Semantic Scholar\n(External)"])
+    Firebase(["🔥 Firebase Auth\n(External)"])
+
+    %% ── System Boundary ──────────────────────────────────────────────────────
+    subgraph System["🔬 Research Hub System"]
+
+        UC_Auth["Authenticate\n(Login/Register/Recover)"]
+        UC_Profile["Manage Profile & Preferences"]
+        
+        UC_Discover["Discover & Read Papers"]
+        UC_Library["Manage Library & Projects"]
+        
+        UC_Community["Engage in Communities\n(Join, Post, Like)"]
+        UC_Moderate["Moderate Community\n(Manage Requests)"]
+        
+        UC_AI["Interact with AI Assistant"]
+        UC_Stats["View Platform Stats"]
+    end
+
+    %% ── Guest & AuthUser Connections ─────────────────────────────────────────
+    Guest --- UC_Auth
+    
+    AuthUser --- UC_Profile
+    AuthUser --- UC_Discover
+    AuthUser --- UC_Library
+    AuthUser --- UC_Community
+    AuthUser --- UC_AI
+    AuthUser --- UC_Stats
+
+    %% ── Admin Connections ────────────────────────────────────────────────────
+    Admin --- UC_Moderate
+
+    %% ── External Services Connections ────────────────────────────────────────
+    UC_Auth --- Firebase
+    UC_Discover --- SemanticScholar
+    UC_AI --- GeminiAI
+
+    %% ── Styles ───────────────────────────────────────────────────────────────
+    classDef actor fill:#1e293b,stroke:#6366f1,color:#e2e8f0,rx:8
+    classDef usecase fill:#0f172a,stroke:#818cf8,color:#c7d2fe,rx:12
+    classDef external fill:#172554,stroke:#38bdf8,color:#bae6fd,rx:8
+    
+    class Guest,AuthUser,Admin actor
+    class GeminiAI,SemanticScholar,Firebase external
+    class UC_Auth,UC_Profile,UC_Discover,UC_Library,UC_Community,UC_Moderate,UC_AI,UC_Stats usecase

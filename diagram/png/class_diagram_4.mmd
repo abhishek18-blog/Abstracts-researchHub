@@ -1,0 +1,91 @@
+classDiagram
+    direction LR
+
+    class ApiClient {
+        -String baseURL
+        -AxiosInstance instance
+        +get(url, config) Promise
+        +post(url, data, config) Promise
+        +put(url, data, config) Promise
+        +patch(url, data, config) Promise
+        +delete(url, config) Promise
+        -attachAuthInterceptor() void
+    }
+
+    class AuthApi {
+        +register(name, email, password) Promise
+        +login(email, password) Promise
+        +googleLogin(idToken) Promise
+        +forgotPassword(email) Promise
+        +getMe() Promise
+    }
+
+    class UserApi {
+        +getProfile() Promise
+        +updateProfile(data) Promise
+        +uploadAvatar(formData) Promise
+        +addPassword(password) Promise
+        +deleteAccount() Promise
+    }
+
+    class PapersApi {
+        +getSavedPapers() Promise
+        +savePaper(paperId) Promise
+        +unsavePaper(paperId) Promise
+        +getPaperById(id) Promise
+        +getReadingProgress(paperId) Promise
+        +updateReadingProgress(paperId, progress) Promise
+    }
+
+    class SearchApi {
+        +searchPapers(query) Promise
+        +getPersonalizedFeed(interests) Promise
+    }
+
+    class ProjectsApi {
+        +getProjects() Promise
+        +createProject(data) Promise
+        +updateProject(id, data) Promise
+        +deleteProject(id) Promise
+        +addPaper(projectId, paperId) Promise
+        +removePaper(projectId, paperId) Promise
+    }
+
+    class CommunityApi {
+        +getCommunities() Promise
+        +createCommunity(data) Promise
+        +joinCommunity(id) Promise
+        +requestJoin(id) Promise
+        +getPosts(communityId) Promise
+        +createPost(communityId, data) Promise
+        +likePost(postId) Promise
+        +getJoinRequests(communityId) Promise
+        +handleJoinRequest(communityId, requestId, action) Promise
+    }
+
+    class ChatApi {
+        +getConversations() Promise
+        +createConversation(title) Promise
+        +getMessages(conversationId) Promise
+        +sendMessage(conversationId, message, context) Promise
+        +deleteConversation(id) Promise
+    }
+
+    class UploadApi {
+        +uploadFile(formData) Promise
+        +getUploads() Promise
+    }
+
+    class StatsApi {
+        +getStats() Promise
+    }
+
+    ApiClient <|-- AuthApi
+    ApiClient <|-- UserApi
+    ApiClient <|-- PapersApi
+    ApiClient <|-- SearchApi
+    ApiClient <|-- ProjectsApi
+    ApiClient <|-- CommunityApi
+    ApiClient <|-- ChatApi
+    ApiClient <|-- UploadApi
+    ApiClient <|-- StatsApi

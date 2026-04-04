@@ -1,0 +1,46 @@
+sequenceDiagram
+    actor User
+    participant FE as Frontend (React)
+    participant BE as Backend (Express)
+    participant FB as Firebase Auth
+    participant DB as MongoDB
+
+    User->>FE: Open App
+    FE->>FE: Check localStorage for JWT token
+    alt Token exists
+        FE->>BE: GET /api/auth/me (Authorization: Bearer <token>)
+        BE->>DB: Find User by ID
+        DB-->>BE: User document
+        BE-->>FE: 200 OK { user }
+        FE->>FE: Set user state, render main app
+    else No token
+        FE->>FE: Render AuthScreen
+        alt Email / Password Login
+            User->>FE: Enter email + password → click Login
+            FE->>BE: POST /api/auth/login { email, password }
+            BE->>DB: Find user by email, verify bcrypt hash
+            DB-->>BE: User found
+            BE-->>FE: 200 { token, user }
+        else Google Sign-In
+            User->>FE: Click "Continue with Google"
+            FE->>FB: signInWithPopup (Google Provider)
+            FB-->>FE: Firebase ID Token
+            FE->>BE: POST /api/auth/google { idToken }
+            BE->>FB: verifyIdToken(idToken)
+            FB-->>BE: Decoded token (email, name)
+            BE->>DB: Find or create user
+            DB-->>BE: User document
+            BE-->>FE: 200 { token, user }
+        end
+        FE->>FE: Store JWT in localStorage, set user state
+    end
+
+    alt No Interests Selected
+        FE->>FE: Show InterestsModal
+        User->>FE: Select interests → confirm
+        FE->>BE: PUT /api/user { interests, hasSelectedInterests: true }
+        BE->>DB: Update user document
+        DB-->>BE: Updated user
+        BE-->>FE: 200 { user }
+        FE->>FE: Close modal, load main app
+    end

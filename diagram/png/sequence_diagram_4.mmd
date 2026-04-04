@@ -1,0 +1,47 @@
+sequenceDiagram
+    actor User
+    participant FE as Frontend (React)
+    participant BE as Backend (Express)
+    participant DB as MongoDB
+
+    User->>FE: Navigate to Community tab
+    FE->>BE: GET /api/community
+    BE->>DB: Find all communities + membership status for user
+    DB-->>BE: Community list
+    BE-->>FE: 200 [ Community[] ]
+    FE->>FE: Render community cards
+
+    alt Join Public Community
+        User->>FE: Click "Join"
+        FE->>BE: POST /api/community/:id/join
+        BE->>DB: Insert CommunityMember { community_id, user_id, role: 'member' }
+        DB-->>BE: Member record
+        BE-->>FE: 200 { member }
+        FE->>FE: Update UI (joined state)
+    else Request to Join Private Community
+        User->>FE: Click "Request Access"
+        FE->>BE: POST /api/community/:id/request
+        BE->>DB: Insert JoinRequest { community_id, user_id, status: 'pending' }
+        DB-->>BE: JoinRequest record
+        BE-->>FE: 200 { request }
+    end
+
+    User->>FE: Select a community → View posts
+    FE->>BE: GET /api/community/:id/posts
+    BE->>DB: Find CommunityPosts by community_id
+    DB-->>BE: Post list
+    BE-->>FE: 200 [ CommunityPost[] ]
+
+    User->>FE: Type post content → click Post
+    FE->>BE: POST /api/community/:id/posts { content, paperId? }
+    BE->>DB: Insert CommunityPost
+    DB-->>BE: New post
+    BE-->>FE: 200 { post }
+    FE->>FE: Append post to feed
+
+    User->>FE: Click Like on a post
+    FE->>BE: PATCH /api/community/posts/:postId/like
+    BE->>DB: Increment likes counter
+    DB-->>BE: Updated post
+    BE-->>FE: 200 { likes }
+    FE->>FE: Update like count in UI

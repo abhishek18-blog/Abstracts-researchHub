@@ -1,0 +1,29 @@
+sequenceDiagram
+    actor User
+    participant FE as Frontend (React)
+    participant BE as Backend (Express)
+    participant SemanticScholar as Semantic Scholar API
+    participant DB as MongoDB
+
+    User->>FE: Navigate to Discover tab, type search query
+    FE->>BE: GET /api/search?q=<query>
+    BE->>SemanticScholar: Search papers API call
+    SemanticScholar-->>BE: Paper list (title, authors, abstract, DOI)
+    BE->>DB: Upsert papers to Paper collection
+    DB-->>BE: Saved paper IDs
+    BE-->>FE: 200 [ Paper[] ]
+    FE->>FE: Render PaperCards
+
+    User->>FE: Click "Save Paper"
+    FE->>BE: POST /api/papers/save { paperId }
+    BE->>DB: Insert SavedPaper { user_id, paper_id }
+    DB-->>BE: Success
+    BE-->>FE: 200 { savedPaper }
+    FE->>FE: Update UI (paper marked as saved)
+
+    User->>FE: Click paper card → Open PaperDetailModal
+    FE->>BE: GET /api/papers/:id
+    BE->>DB: Find Paper by ID
+    DB-->>BE: Paper document
+    BE-->>FE: 200 { paper }
+    FE->>FE: Render full paper details

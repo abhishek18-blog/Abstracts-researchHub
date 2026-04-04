@@ -1,0 +1,100 @@
+@startuml Research_Hub_Activity_Diagram
+
+skinparam backgroundColor #0F172A
+skinparam ActivityBackgroundColor #1E293B
+skinparam ActivityBorderColor #6366F1
+skinparam ActivityFontColor #E2E8F0
+skinparam ArrowColor #818CF8
+skinparam ActivityDiamondBackgroundColor #1E293B
+skinparam ActivityDiamondBorderColor #6366F1
+skinparam ActivityDiamondFontColor #E2E8F0
+skinparam ActivityStartColor #6366F1
+skinparam ActivityEndColor #6366F1
+
+title Research Hub - Activity Diagram
+
+start
+
+:Open Application;
+
+if (JWT Token in localStorage?) then (Yes)
+  :Fetch User Profile;
+  if (Valid Session?) then (No)
+    :Clear Token;
+    :Show Auth Screen;
+  else (Yes)
+    :Load User Data;
+  endif
+else (No)
+  :Show Auth Screen;
+endif
+
+if (Login Method?) then (Email/Password)
+  :Enter Credentials;
+  :POST /api/auth/login;
+else (Google OAuth)
+  :Firebase Google Sign-In;
+  :POST /api/auth/google;
+else (Register)
+  :Enter Name, Email, Password;
+  :POST /api/auth/register;
+endif
+
+if (Auth Successful?) then (No)
+  :Show Error;
+  stop
+else (Yes)
+  :Save JWT to localStorage;
+endif
+
+if (Interests Selected?) then (No)
+  :Show Interests Modal;
+  :Select Research Topics;
+  :PUT /api/user;
+endif
+
+:Load Main Application;
+
+fork
+  :Library Tab;
+  :View Saved Papers & Projects;
+  :Click Paper → Paper Detail Modal;
+  :Save / Add to Project;
+fork again
+  :Discover Tab;
+  :Enter Search Query;
+  :GET /api/search?q=...;
+  :View Paper Results;
+fork again
+  :For You Tab;
+  :GET /api/search/personalized;
+  :View Recommended Papers;
+fork again
+  :Community Tab;
+  :Browse Communities;
+  if (Community Type?) then (Public)
+    :Join Instantly;
+  else (Private)
+    :Send Join Request;
+  endif
+  :View & Create Posts;
+  :Like Posts;
+fork again
+  :AI Chat;
+  :Open Chat Sidebar;
+  if (Upload PDF?) then (Yes)
+    :POST /api/upload;
+    :Extract PDF Text;
+  endif
+  :Type Message;
+  :POST /api/ai/chat → Gemini AI;
+  :View AI Response;
+fork again
+  :Settings Tab;
+  :Update Profile / Avatar;
+  :Change Password;
+end fork
+
+stop
+
+@enduml
