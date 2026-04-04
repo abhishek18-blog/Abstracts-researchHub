@@ -1,4 +1,4 @@
-import { Paper, SavedPaper, ReadingProgress, Project, Upload } from '../models/index.js';
+import { Paper, SavedPaper, ReadingProgress, Project, Upload, AbstractHighlight } from '../models/index.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -301,5 +301,49 @@ export const updateReadingProgress = async (req, res) => {
   } catch (error) {
     console.error('Error updating progress:', error);
     res.status(500).json({ success: false, error: 'Failed to update reading progress' });
+  }
+};
+
+export const getAbstractHighlights = async (req, res) => {
+  try {
+    const highlights = await AbstractHighlight.find({ paper_id: req.params.id, user_id: req.userId });
+    res.json({ success: true, data: highlights });
+  } catch (error) {
+    console.error('Error fetching highlights:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch highlights' });
+  }
+};
+
+export const addAbstractHighlight = async (req, res) => {
+  try {
+    const { text, color } = req.body;
+    if (!text) {
+      return res.status(400).json({ success: false, error: 'Text is required' });
+    }
+    const highlight = new AbstractHighlight({
+      user_id: req.userId,
+      paper_id: req.params.id,
+      text,
+      color: color || 'yellow'
+    });
+    await highlight.save();
+    res.status(201).json({ success: true, data: highlight });
+  } catch (error) {
+    console.error('Error adding highlight:', error);
+    res.status(500).json({ success: false, error: 'Failed to add highlight' });
+  }
+};
+
+export const removeAbstractHighlight = async (req, res) => {
+  try {
+    const highlight = await AbstractHighlight.findOne({ _id: req.params.highlightId, user_id: req.userId });
+    if (!highlight) {
+      return res.status(404).json({ success: false, error: 'Highlight not found' });
+    }
+    await AbstractHighlight.deleteOne({ _id: highlight._id });
+    res.json({ success: true, message: 'Highlight removed' });
+  } catch (error) {
+    console.error('Error removing highlight:', error);
+    res.status(500).json({ success: false, error: 'Failed to remove highlight' });
   }
 };
