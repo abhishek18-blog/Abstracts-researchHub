@@ -70,6 +70,14 @@ export interface Paper {
   updated_at: string;
 }
 
+export interface AbstractHighlight {
+  id: string;
+  user_id: string;
+  paper_id: string;
+  text: string;
+  color: string;
+}
+
 export interface PapersQuery {
   search?: string;
   sort?: 'most_cited' | 'most_recent' | 'oldest';
@@ -107,6 +115,18 @@ export const papersApi = {
       method: 'PUT',
       body: JSON.stringify({ progress }),
     }),
+
+  getHighlights: (id: string) =>
+    request<AbstractHighlight[]>(`/papers/${id}/highlights`),
+
+  addHighlight: (id: string, text: string, color?: string) =>
+    request<AbstractHighlight>(`/papers/${id}/highlights`, {
+      method: 'POST',
+      body: JSON.stringify({ text, color }),
+    }),
+
+  removeHighlight: (id: string, highlightId: string) =>
+    request<void>(`/papers/${id}/highlights/${highlightId}`, { method: 'DELETE' }),
 };
 
 // ─── Projects ────────────────────────────────────────────────────────────────
