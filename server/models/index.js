@@ -158,7 +158,17 @@ const communityPostSchema = new mongoose.Schema({
 
 const CommunityPost = mongoose.model('CommunityPost', communityPostSchema);
 
+const abstractHighlightSchema = new mongoose.Schema({
+  _id: stringId,
+  user_id: { type: String, ref: 'User', required: true },
+  paper_id: { type: String, ref: 'Paper', required: true },
+  text: { type: String, required: true },
+  color: { type: String, default: 'yellow' }
+}, schemaOptions);
+
+const AbstractHighlight = mongoose.model('AbstractHighlight', abstractHighlightSchema);
+
 export {
   User, Paper, Project, SavedPaper, ReadingProgress,
-  Conversation, Message, Upload, Community, CommunityMember, CommunityPost, JoinRequest
+  Conversation, Message, Upload, Community, CommunityMember, CommunityPost, JoinRequest, AbstractHighlight
 };
