@@ -212,7 +212,7 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
             </button>
           </form>
 
-          {!isForgot && (
+          {isLogin && !isForgot && (
             <div className="mt-6 flex flex-col items-center">
               <div className="relative w-full flex items-center justify-center my-4">
                 <div className="absolute inset-0 flex items-center">
