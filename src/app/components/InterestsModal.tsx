@@ -136,12 +136,13 @@ export function InterestsModal({ onComplete, initialInterests = [] }: InterestsM
     }
   };
 
-  const handleSave = async () => {
-    if (selected.length === 0) return;
+  const handleSave = async (isSkip: boolean = false) => {
+    if (!isSkip && selected.length === 0) return;
     try {
       setSaving(true);
-      await userApi.updateProfile({ interests: selected, hasSelectedInterests: true });
-      onComplete(selected);
+      const finalInterests = isSkip ? [] : selected;
+      await userApi.updateProfile({ interests: finalInterests, hasSelectedInterests: true });
+      onComplete(finalInterests);
     } catch (error) {
       console.error('Failed to save interests:', error);
     } finally {
@@ -270,14 +271,23 @@ export function InterestsModal({ onComplete, initialInterests = [] }: InterestsM
               {selected.length === 0 ? 'Select at least 1 domain to continue' : `${MAX_SELECTIONS - selected.length} slot${MAX_SELECTIONS - selected.length !== 1 ? 's' : ''} remaining`}
             </p>
           </div>
-          <button
-            onClick={handleSave}
-            disabled={selected.length === 0 || saving}
-            className="flex items-center gap-3 px-8 py-4 bg-primary text-primary-foreground rounded-2xl font-black uppercase tracking-widest text-sm hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 shadow-xl shadow-primary/20"
-          >
-            {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowRight className="w-5 h-5" />}
-            {saving ? 'Saving...' : 'Continue'}
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={() => handleSave(true)}
+              disabled={saving}
+              className="flex items-center gap-3 px-6 py-4 bg-secondary text-secondary-foreground rounded-2xl font-black uppercase tracking-widest text-sm hover:bg-secondary/80 active:scale-95 transition-all disabled:opacity-50"
+            >
+              Skip
+            </button>
+            <button
+              onClick={() => handleSave(false)}
+              disabled={selected.length === 0 || saving}
+              className="flex items-center gap-3 px-8 py-4 bg-primary text-primary-foreground rounded-2xl font-black uppercase tracking-widest text-sm hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 shadow-xl shadow-primary/20"
+            >
+              {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <ArrowRight className="w-5 h-5" />}
+              {saving ? 'Saving...' : 'Continue'}
+            </button>
+          </div>
         </div>
 
       </div>
