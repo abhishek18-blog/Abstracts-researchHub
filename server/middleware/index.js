@@ -4,6 +4,11 @@ const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_key';
 
 // Auth middleware — verifies JWT token
 export function authMiddleware(req, res, next) {
+  // Allow public access to paper search
+  if (req.method === 'GET' && req.originalUrl.startsWith('/api/search/papers')) {
+    return next();
+  }
+
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith('Bearer ')) {
     const token = authHeader.substring(7);

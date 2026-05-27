@@ -111,6 +111,8 @@ export function DiscoverView() {
     } catch (err: any) {
       if (err.message?.includes('already')) {
         setImportedIds(prev => new Set([...prev, paper.externalId]));
+      } else if (err.message === 'Authentication required') {
+        alert('You need to create an account to save papers to your library!');
       } else {
         alert(err.message || 'Failed to import paper');
       }

@@ -7,10 +7,14 @@ import { GoogleAuthProvider, signInWithPopup, sendPasswordResetEmail } from 'fir
 
 interface AuthScreenProps {
   onLogin: (token: string, user: any) => void;
+  onCancel?: () => void;
+  customTitle?: string;
+  customSubtitle?: string;
+  defaultIsLogin?: boolean;
 }
 
-export function AuthScreen({ onLogin }: AuthScreenProps) {
-  const [isLogin, setIsLogin] = useState(true);
+export function AuthScreen({ onLogin, onCancel, customTitle, customSubtitle, defaultIsLogin = true }: AuthScreenProps) {
+  const [isLogin, setIsLogin] = useState(defaultIsLogin);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -118,13 +122,23 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
         </div>
 
         {/* Auth Interface */}
-        <div className="w-full max-w-[440px] bg-slate-900 border border-slate-800 rounded-[48px] p-10 md:p-12 shadow-2xl animate-in fade-in zoom-in-95 duration-1000">
+        <div className="w-full max-w-[440px] bg-slate-900 border border-slate-800 rounded-[48px] p-10 md:p-12 shadow-2xl animate-in fade-in zoom-in-95 duration-1000 relative">
+          
+          {onCancel && (
+            <button
+              onClick={onCancel}
+              className="absolute top-6 right-6 text-white/30 hover:text-white p-2 rounded-full hover:bg-white/10 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+          )}
+
           <div className="mb-10 text-center lg:text-left">
             <h2 className="text-3xl font-bold text-white mb-2">
-              {isLogin ? 'Portal Access' : 'Begin Journey'}
+              {customTitle ? customTitle : (isLogin ? 'Sign In' : 'Sign Up')}
             </h2>
             <p className="text-white/40 text-sm font-medium">
-              {isLogin ? 'Enter your credentials to synchronize data.' : 'Create your researcher profile today.'}
+              {customSubtitle ? customSubtitle : (isLogin ? 'Enter your credentials to access your account.' : 'Create your profile today.')}
             </p>
           </div>
 
@@ -152,14 +166,14 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
                     value={name}
                     onChange={e => setName(e.target.value)}
                     className="w-full pl-14 pr-6 py-4.5 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-white/10 focus:ring-2 focus:ring-blue-500/50 outline-none transition-all"
-                    placeholder="Researcher Name"
+                    placeholder="Your Name"
                   />
                 </div>
               </div>
             )}
 
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-white/30 uppercase tracking-widest ml-1">Email Terminal</label>
+              <label className="text-[10px] font-black text-white/30 uppercase tracking-widest ml-1">Email</label>
               <div className="relative group">
                 <Mail className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-white/20 group-focus-within:text-blue-400 transition-colors" />
                 <input
@@ -168,7 +182,7 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
                   value={email}
                   onChange={e => setEmail(e.target.value)}
                   className="w-full pl-14 pr-6 py-4.5 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-white/10 focus:ring-2 focus:ring-blue-500/50 outline-none transition-all"
-                  placeholder="name@institution.edu"
+                  placeholder="name@example.com"
                 />
               </div>
             </div>
@@ -177,7 +191,7 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
               <div className="space-y-2">
                 <div className="flex justify-between items-center px-1">
                   <label className="text-[10px] font-black text-white/30 uppercase tracking-widest">
-                    Access Key
+                    Password
                   </label>
                   {isLogin && (
                     <button
@@ -185,7 +199,7 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
                       onClick={() => setIsForgot(true)}
                       className="text-[10px] font-black text-blue-400 hover:text-blue-300 uppercase tracking-wider"
                     >
-                      Lost Key?
+                      Forgot Password?
                     </button>
                   )}
                 </div>
@@ -208,7 +222,7 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
               disabled={loading}
               className="w-full py-5 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black uppercase tracking-widest text-[11px] shadow-2xl shadow-blue-600/20 transition-all active:scale-[0.98] flex items-center justify-center gap-3 disabled:opacity-50"
             >
-              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><ArrowRight className="w-5 h-5" /> {isForgot ? 'Send Reset Email' : (isLogin ? 'Initialize Portal' : 'Register Fellowship')}</>}
+              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <><ArrowRight className="w-5 h-5" /> {isForgot ? 'Send Reset Email' : (isLogin ? 'Sign In' : 'Sign Up')}</>}
             </button>
           </form>
 
@@ -240,9 +254,9 @@ export function AuthScreen({ onLogin }: AuthScreenProps) {
               className="text-white/30 hover:text-white transition-colors text-xs font-bold uppercase tracking-widest"
             >
               {isLogin ? (
-                <>New to the network? <span className="text-blue-400">Apply for Fellowship</span></>
+                <>New to the network? <span className="text-blue-400">Sign Up</span></>
               ) : (
-                <>Returning fellow? <span className="text-blue-400">Initialize Access</span></>
+                <>Already have an account? <span className="text-blue-400">Sign In</span></>
               )}
               {isForgot && <div className="mt-2 text-blue-400 underline underline-offset-4">Return to Login</div>}
             </button>

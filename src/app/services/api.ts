@@ -43,8 +43,11 @@ async function request<T>(
 
   if (!response.ok) {
     if (response.status === 401 && !endpoint.includes('/auth/')) {
+      const hadToken = !!localStorage.getItem('token');
       localStorage.removeItem('token');
-      window.location.reload();
+      if (hadToken && !localStorage.getItem('guest')) {
+        window.location.reload();
+      }
     }
     throw new Error(json.error || `Request failed with status ${response.status}`);
   }

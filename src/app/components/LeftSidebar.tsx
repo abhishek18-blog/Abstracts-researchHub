@@ -7,9 +7,10 @@ import { BrandLogo } from './BrandLogo';
 interface LeftSidebarProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
+  isGuest?: boolean;
 }
 
-export function LeftSidebar({ activeTab, onTabChange }: LeftSidebarProps) {
+export function LeftSidebar({ activeTab, onTabChange, isGuest }: LeftSidebarProps) {
   const [user, setUser] = useState<UserProfile | null>(null);
   const { theme, toggleTheme } = useTheme();
 
@@ -21,6 +22,7 @@ export function LeftSidebar({ activeTab, onTabChange }: LeftSidebarProps) {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem('guest');
     window.location.reload();
   };
 
@@ -112,6 +114,16 @@ export function LeftSidebar({ activeTab, onTabChange }: LeftSidebarProps) {
                     <p className="text-muted-foreground text-xs">{user.role}</p>
                   </div>
                 </>
+              ) : isGuest ? (
+                <>
+                  <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center flex-shrink-0 shadow-md">
+                    <Globe className="w-5 h-5 text-slate-500 dark:text-slate-400" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sidebar-foreground text-sm font-bold truncate">Guest User</p>
+                    <p className="text-muted-foreground text-xs">Unregistered</p>
+                  </div>
+                </>
               ) : (
                 <div className="flex items-center gap-2">
                   <Loader2 className="w-4 h-4 text-muted-foreground animate-spin" />
@@ -122,7 +134,7 @@ export function LeftSidebar({ activeTab, onTabChange }: LeftSidebarProps) {
             <button
               onClick={handleLogout}
               className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-full transition-colors"
-              title="Sign Out"
+              title={isGuest ? "Exit Guest Mode" : "Sign Out"}
             >
               <LogOut className="w-5 h-5" />
             </button>

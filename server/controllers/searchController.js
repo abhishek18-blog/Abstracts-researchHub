@@ -1,5 +1,14 @@
 import { Paper, SavedPaper } from '../models/index.js';
 
+// ─── Simple In-Memory Cache ──────────────────────────────────────
+const searchCache = new Map();
+const CACHE_TTL = 1000 * 60 * 60; // 1 hour
+const MAX_CACHE_SIZE = 1000;
+
+function getCacheKey(q, limit, offset) {
+  return `${q.trim().toLowerCase()}_${limit}_${offset}`;
+}
+
 // ─── Helper: fetch with retry for rate-limited APIs ──────────────
 async function fetchWithRetry(url, options = {}, retries = 2, delayMs = 2000) {
   for (let i = 0; i <= retries; i++) {
@@ -153,6 +162,20 @@ export async function searchExternalPapers(req, res) {
       return res.status(400).json({ success: false, error: 'Search query (q) is required' });
     }
 
+    const cacheKey = getCacheKey(q, limit, offset);
+    const cached = searchCache.get(cacheKey);
+    
+    if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
+      console.log('⚡ Serving search from cache:', cacheKey);
+      return res.json(cached.data);
+    }
+
+    // Optional cache cleanup if it grows too large
+    if (searchCache.size >= MAX_CACHE_SIZE) {
+      const firstKey = searchCache.keys().next().value;
+      searchCache.delete(firstKey);
+    }
+
     let result = null;
     let source = '';
 
@@ -186,14 +209,21 @@ export async function searchExternalPapers(req, res) {
       );
     }
 
-    res.json({
+    const responseData = {
       success: true,
       data: result.papers,
       total: result.total,
       offset: Number(offset),
       limit: Number(limit),
       source,
+    };
+
+    searchCache.set(cacheKey, {
+      timestamp: Date.now(),
+      data: responseData
     });
+
+    res.json(responseData);
   } catch (error) {
     console.error('Error searching external papers:', error);
     res.status(500).json({ success: false, error: 'Failed to search papers. Please try again.' });
