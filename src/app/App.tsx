@@ -12,13 +12,21 @@ import { AuthScreen } from './components/AuthScreen';
 import { ThemeProvider } from './context/ThemeContext';
 import { userApi } from './services/api';
 import { InterestsModal } from './components/InterestsModal';
+import { LandingPage } from './components/LandingPage';
+import { GuestFeatureLock } from './components/GuestFeatureLock';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('library');
+  const [activeTab, setActiveTab] = useState(() => {
+    return localStorage.getItem('guest') ? 'discover' : 'library';
+  });
   const [isChatOpen, setIsChatOpen] = useState(true);
   const [selectedPaper, setSelectedPaper] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(!!localStorage.getItem('token'));
   const [user, setUser] = useState<any>(null);
+  
+  const [isGuest, setIsGuest] = useState(!!localStorage.getItem('guest'));
+  const [showLanding, setShowLanding] = useState(!localStorage.getItem('token') && !localStorage.getItem('guest'));
+  const [showAuth, setShowAuth] = useState(false);
 
   useEffect(() => {
     // Check if we have a valid session on load
@@ -41,14 +49,41 @@ export default function App() {
     return () => window.removeEventListener('openDiscoverTab', handleSwitchTab);
   }, []);
 
-  if (!isAuthenticated) {
+  if (showLanding) {
+    return (
+      <LandingPage
+        onGetStarted={() => {
+          setShowLanding(false);
+          setShowAuth(true);
+        }}
+        onGuestAccess={() => {
+          localStorage.setItem('guest', 'true');
+          setIsGuest(true);
+          setShowLanding(false);
+          setActiveTab('discover'); // Force discover tab for guests
+        }}
+      />
+    );
+  }
+
+  if (showAuth || (!isAuthenticated && !isGuest)) {
     return (
       <AuthScreen
+        customTitle={isGuest ? "Want to access this feature??" : undefined}
+        customSubtitle={isGuest ? "Create an account to continue." : undefined}
+        defaultIsLogin={!isGuest}
         onLogin={(token, user) => {
           localStorage.setItem('token', token);
+          localStorage.removeItem('guest');
           setUser(user);
           setIsAuthenticated(true);
+          setIsGuest(false);
+          setShowAuth(false);
         }}
+        onCancel={isGuest ? () => {
+          setShowAuth(false);
+          setActiveTab('discover');
+        } : undefined}
       />
     );
   }
@@ -66,13 +101,20 @@ export default function App() {
     <ThemeProvider>
       <div className="flex h-screen bg-background text-foreground overflow-hidden">
         {/* Left Sidebar */}
-        <LeftSidebar activeTab={activeTab} onTabChange={setActiveTab} />
+        <LeftSidebar activeTab={activeTab} onTabChange={setActiveTab} isGuest={isGuest} />
 
         {/* Center Content — switch-rendered tabs */}
-        {!['foryou', 'discover'].includes(activeTab) && renderMain()}
+        {!['foryou', 'discover'].includes(activeTab) && !isGuest && renderMain()}
+
+        {/* Guest Lock Screen */}
+        {isGuest && activeTab !== 'discover' && (
+          <div className="flex-1 overflow-hidden flex">
+            <GuestFeatureLock onSignUp={() => setShowAuth(true)} />
+          </div>
+        )}
 
         {/* Always-mounted views — preserved across tab switches so search state survives */}
-        <div className={`flex-1 overflow-hidden ${activeTab === 'foryou' ? 'flex' : 'hidden'}`}>
+        <div className={`flex-1 overflow-hidden ${(activeTab === 'foryou' && !isGuest) ? 'flex' : 'hidden'}`}>
           <ForYouView
             userInterests={user?.interests || []}
             onGoToSettings={() => setActiveTab('settings')}
@@ -83,7 +125,7 @@ export default function App() {
         </div>
 
         {/* AI Chat Sidebar */}
-        <AIChatSidebar isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
+        {!isGuest && <AIChatSidebar isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />}
 
         {/* Paper Detail Modal */}
         <PaperDetailModal
@@ -92,7 +134,7 @@ export default function App() {
         />
 
         {/* Floating Chat Toggle */}
-        {!isChatOpen && (
+        {!isGuest && !isChatOpen && (
           <button
             onClick={() => setIsChatOpen(true)}
             className="fixed bottom-8 right-8 w-14 h-14 bg-primary text-primary-foreground rounded-full shadow-xl hover:opacity-90 transition-all flex items-center justify-center group hover:scale-110"

@@ -11,7 +11,7 @@ export function BrandLogo({ className = "", isAuthScreen = false }: BrandLogoPro
 
   return (
     <span className={className}>
-      <span className={isAuthScreen ? "text-black drop-shadow-[0_0_1px_rgba(255,255,255,0.8)]" : "text-black dark:text-white"}>
+      <span className={isAuthScreen ? "text-black" : "text-black dark:text-white"}>
         {part1.map((char, i) => (
           <span
             key={i}
@@ -22,7 +22,7 @@ export function BrandLogo({ className = "", isAuthScreen = false }: BrandLogoPro
           </span>
         ))}
       </span>
-      <span className={isAuthScreen ? "text-blue-400 drop-shadow-[0_1px_8px_rgba(0,0,0,0.6)]" : "text-blue-500"}>
+      <span className="text-blue-500">
         {part2.map((char, i) => (
           <span
             key={i + part1.length}
