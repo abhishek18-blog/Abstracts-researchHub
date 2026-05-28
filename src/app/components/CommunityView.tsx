@@ -4,7 +4,7 @@ import {
   LogIn, LogOut, Heart, Trash2, Send, ChevronLeft, Sparkles, Lock
 } from 'lucide-react';
 import { Badge } from './ui/badge';
-import { communityApi, papersApi, type Community, type CommunityPost, type Paper } from '../services/api';
+import { communityApi, papersApi, userApi, type Community, type CommunityPost, type Paper, type UserProfile } from '../services/api';
 
 /* ─────────────────────────────────────────────────────────────────────── */
 
@@ -58,6 +58,7 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
   });
   const [creating, setCreating] = useState(false);
   const [requests, setRequests] = useState<any[]>([]);
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
 
   const fetchCommunities = useCallback(async () => {
     setLoading(true);
@@ -77,6 +78,7 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
   useEffect(() => { fetchCommunities(); }, [fetchCommunities]);
 
   useEffect(() => {
+    userApi.getProfile().then(r => setCurrentUser(r.data)).catch(() => {});
     papersApi.getAll().then(r => setLocalPapers(r.data)).catch(() => {});
   }, []);
 
@@ -115,6 +117,20 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
       if (selected?.id === communityId) setSelected(prev => prev ? { ...prev, isMember: false, memberCount: Math.max(0, prev.memberCount - 1) } : prev);
     } catch (err) { console.error(err); }
     finally { setActionLoading(null); }
+  };
+
+  const handleDeleteCommunity = async (communityId: string) => {
+    if (!confirm('Are you sure you want to delete this community? This action cannot be undone.')) return;
+    setActionLoading(communityId);
+    try {
+      await communityApi.delete(communityId);
+      setCommunities(prev => prev.filter(c => c.id !== communityId));
+      if (selected?.id === communityId) setSelected(null);
+    } catch (err: any) {
+      alert(err.message || 'Failed to delete community');
+    } finally {
+      setActionLoading(null);
+    }
   };
 
   const handlePost = async () => {
@@ -183,37 +199,48 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
   if (selected) {
     return (
       <div className="flex-1 bg-background overflow-hidden flex flex-col h-full animate-in fade-in duration-500">
-        <div className="p-8 border-b border-border bg-card/50 backdrop-blur-md sticky top-0 z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div className="flex items-center gap-6 group">
+        <div className="p-6 md:p-8 border-b border-border/50 bg-card/80 backdrop-blur-xl sticky top-0 z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 md:gap-6 shadow-sm">
+          <div className="flex items-center gap-4 group">
             <button 
               onClick={() => setSelected(null)}
-              className="p-4 hover:bg-background border border-transparent hover:border-border rounded-2xl transition-all group-hover:-translate-x-1"
+              className="p-3 bg-muted/30 hover:bg-muted border border-border/50 rounded-2xl transition-all group-hover:-translate-x-1"
             >
-              <ChevronLeft className="w-6 h-6" />
+              <ChevronLeft className="w-5 h-5 text-foreground" />
             </button>
-            <div>
-              <div className="flex items-center gap-3 mb-1">
-                <h2 className="text-3xl font-black text-foreground tracking-tighter">{selected.name}</h2>
-                {selected.is_private && <Badge variant="outline" className="text-[10px] font-black tracking-widest uppercase py-0.5 border-primary/20 text-primary bg-primary/5">Private Fellowship</Badge>}
+            <div className="flex flex-col justify-center">
+              <div className="flex items-center gap-3 mb-1.5">
+                <h2 className="text-2xl md:text-3xl font-black text-foreground tracking-tighter leading-none">{selected.name}</h2>
+                {selected.is_private && <Badge variant="outline" className="text-[10px] font-black tracking-widest uppercase py-0.5 border-primary/20 text-primary bg-primary/5">Private</Badge>}
               </div>
-              <div className="flex items-center gap-4 text-xs font-bold text-muted-foreground uppercase tracking-widest">
+              <div className="flex items-center gap-3 text-xs font-bold text-muted-foreground uppercase tracking-widest">
                 <span className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> {selected.memberCount} researchers</span>
-                <span className="w-1 h-1 bg-muted rounded-full"></span>
-                <span className="flex items-center gap-1.5"><BookOpen className="w-3.5 h-3.5" /> Domain: {selected.subject}</span>
+                <span className="w-1 h-1 bg-border rounded-full"></span>
+                <span className="flex items-center gap-1.5"><BookOpen className="w-3.5 h-3.5" /> {selected.subject}</span>
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            {currentUser && selected.created_by === currentUser.id && (
+              <button
+                onClick={() => handleDeleteCommunity(selected.id)}
+                disabled={actionLoading === selected.id}
+                className="flex items-center gap-2 px-5 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] md:text-xs transition-all bg-red-500/10 text-red-600 hover:bg-red-500 hover:text-white border border-red-500/20 shadow-sm"
+                title="Delete Community"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span className="hidden sm:inline">Delete</span>
+              </button>
+            )}
             <button
               onClick={() => selected.isMember ? handleLeave(selected.id) : handleJoin(selected.id)}
               disabled={actionLoading === selected.id}
-              className={`flex items-center gap-3 px-8 py-3.5 rounded-2xl font-black uppercase tracking-widest text-xs transition-all shadow-xl ${
+              className={`flex items-center gap-2 px-6 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] md:text-xs transition-all shadow-sm border ${
                 selected.isMember
-                  ? 'bg-red-500/10 text-red-500 hover:bg-red-500 hover:text-white border-none'
-                  : 'bg-primary text-primary-foreground hover:opacity-90 shadow-primary/20'
+                  ? 'bg-secondary/50 text-secondary-foreground hover:bg-red-500 hover:text-white border-border/50 hover:border-red-500'
+                  : 'bg-primary text-primary-foreground hover:bg-primary/90 border-transparent shadow-primary/20'
               }`}
             >
-              {actionLoading === selected.id ? <Loader2 className="w-5 h-5 animate-spin" /> : selected.isMember ? <><LogOut className="w-5 h-5" /> Leave Field</> : <><LogIn className="w-5 h-5" /> Join Discovery</>}
+              {actionLoading === selected.id ? <Loader2 className="w-4 h-4 animate-spin" /> : selected.isMember ? <><LogOut className="w-4 h-4" /> Leave Field</> : <><LogIn className="w-4 h-4" /> Join Discovery</>}
             </button>
           </div>
         </div>
@@ -266,13 +293,13 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
               </div>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {/* Feed */}
-              <div className="lg:col-span-2 space-y-8">
+              <div className="lg:col-span-2 space-y-6">
                 {/* Post Composer */}
                 {selected.isMember ? (
-                  <div className="bg-card border border-border rounded-3xl p-8 shadow-xl shadow-black/5 relative group transition-all focus-within:ring-4 focus-within:ring-primary/5">
-                    <div className="flex items-center gap-3 mb-6">
+                  <div className="bg-card/40 backdrop-blur-sm border border-border/60 rounded-3xl p-6 shadow-sm relative group transition-all focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/40 focus-within:bg-card">
+                    <div className="flex items-center gap-2.5 mb-5">
                       <Sparkles className="w-5 h-5 text-primary" />
                       <span className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground">Share an Insight</span>
                     </div>
@@ -280,7 +307,7 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
                       value={postInput}
                       onChange={e => setPostInput(e.target.value)}
                       placeholder="What breakthroughs are you working on today?"
-                      className="w-full bg-transparent border-none focus:ring-0 text-xl font-medium placeholder-muted-foreground resize-none min-h-[140px]"
+                      className="w-full bg-transparent border-none focus:ring-0 text-lg font-medium placeholder-muted-foreground/60 resize-none min-h-[120px]"
                     />
 
                     {/* Attached Paper */}
@@ -298,19 +325,19 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
                       </div>
                     )}
 
-                    <div className="flex items-center justify-between pt-8 border-t border-border/50">
+                    <div className="flex items-center justify-between pt-5 border-t border-border/40 mt-2">
                       <button
                         onClick={() => setShowPaperPicker(v => !v)}
-                        className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-all px-4 py-2 hover:bg-primary/5 rounded-xl"
+                        className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-all px-4 py-2.5 hover:bg-primary/5 rounded-xl border border-transparent hover:border-primary/10"
                       >
-                        <Plus className="w-4 h-4" /> Connect Paper
+                        <Plus className="w-3.5 h-3.5" /> Connect Paper
                       </button>
                       <button
                         onClick={handlePost}
                         disabled={!postInput.trim() || sending}
-                        className="flex items-center gap-3 px-8 py-3.5 bg-primary text-primary-foreground rounded-2xl font-black uppercase tracking-widest text-xs hover:shadow-2xl hover:shadow-primary/20 transition-all disabled:opacity-50"
+                        className="flex items-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground rounded-xl font-black uppercase tracking-widest text-[10px] hover:shadow-lg hover:shadow-primary/20 transition-all disabled:opacity-50"
                       >
-                        {sending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                        {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                         {sending ? 'Publishing...' : 'Publish Insight'}
                       </button>
                     </div>
@@ -346,11 +373,13 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
                 )}
 
                 {/* Posts Feed */}
-                <div className="space-y-8">
+                <div className="space-y-6">
                   {(selected.posts || []).length === 0 ? (
-                    <div className="text-center py-24 text-muted-foreground bg-muted/20 border border-dashed border-border rounded-3xl">
-                      <MessageSquare className="w-16 h-16 mx-auto mb-6 opacity-10" />
-                      <p className="text-xl font-bold italic tracking-tight">The silent halls of research await your insight...</p>
+                    <div className="text-center py-20 bg-muted/10 border border-dashed border-border/60 rounded-3xl flex flex-col items-center justify-center">
+                      <div className="w-16 h-16 bg-background rounded-full flex items-center justify-center mb-5 shadow-sm border border-border/40">
+                        <MessageSquare className="w-6 h-6 text-muted-foreground/50" />
+                      </div>
+                      <p className="text-lg font-bold text-muted-foreground">The silent halls of research await your insight...</p>
                     </div>
                   ) : (
                     (selected.posts || []).map(post => (
@@ -361,13 +390,13 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
               </div>
 
               {/* Members Sidebar */}
-              <div className="space-y-8">
-                <div className="bg-card border border-border rounded-[32px] p-8 shadow-xl shadow-black/5">
-                  <h3 className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground mb-8 flex items-center justify-between">
+              <div className="space-y-6">
+                <div className="bg-card/40 backdrop-blur-sm border border-border/60 rounded-3xl p-6 shadow-sm">
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-6 flex items-center justify-between">
                     Fellowship
-                    <span className="bg-primary/10 text-primary px-3 py-1 rounded-full">{selected.memberCount}</span>
+                    <span className="bg-primary/10 text-primary px-2.5 py-0.5 rounded-full text-[10px]">{selected.memberCount}</span>
                   </h3>
-                  <div className="space-y-6">
+                  <div className="space-y-4">
                     {(selected.members || []).map(m => (
                       <div key={m.id} className="flex items-center gap-4 group/member">
                         <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center border border-border group-hover/member:bg-primary/10 group-hover/member:border-primary/20 transition-all overflow-hidden shadow-sm">
@@ -386,10 +415,11 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
                   </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-primary/10 to-blue-500/10 border border-primary/10 rounded-[32px] p-8">
-                   <Sparkles className="w-10 h-10 text-primary mb-6" />
-                   <h4 className="text-xl font-black text-foreground mb-3 leading-tight">Forge Ideas</h4>
-                   <p className="text-sm text-muted-foreground font-medium leading-relaxed">Collaborate with fellow researchers in {selected.subject}.</p>
+                <div className="bg-gradient-to-br from-primary/5 to-blue-500/5 border border-primary/10 rounded-3xl p-6 shadow-sm relative overflow-hidden">
+                   <div className="absolute top-0 right-0 w-24 h-24 bg-primary/10 rounded-full blur-2xl -translate-y-8 translate-x-8"></div>
+                   <Sparkles className="w-8 h-8 text-primary mb-4 relative z-10" />
+                   <h4 className="text-lg font-black text-foreground mb-2 leading-tight relative z-10">Forge Ideas</h4>
+                   <p className="text-xs text-muted-foreground font-medium leading-relaxed relative z-10">Collaborate with fellow researchers in {selected.subject}.</p>
                 </div>
               </div>
             </div>
@@ -448,42 +478,42 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {communities.map((c) => (
               <div 
                 key={c.id} 
-                className="bg-card border border-primary/10 rounded-3xl p-8 hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 group cursor-pointer relative overflow-hidden"
+                className="bg-card/50 backdrop-blur-md border border-border/50 hover:border-primary/30 rounded-3xl p-6 hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 group cursor-pointer relative overflow-hidden flex flex-col h-full"
                 onClick={() => openCommunity(c)}
               >
-                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -translate-y-16 translate-x-16 blur-3xl group-hover:bg-primary/10 transition-colors"></div>
+                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full -translate-y-16 translate-x-16 blur-3xl group-hover:bg-primary/20 transition-colors opacity-50"></div>
                 
-                <div className="flex items-start justify-between mb-8 relative z-10">
-                  <div className="w-16 h-16 bg-muted rounded-3xl flex items-center justify-center shadow-inner group-hover:scale-110 transition-transform">
-                    <span className="text-3xl">{c.icon || '🔬'}</span>
+                <div className="flex items-start justify-between mb-5 relative z-10">
+                  <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center border border-primary/20 group-hover:scale-105 transition-transform shadow-sm">
+                    <span className="text-2xl">{c.icon || '🔬'}</span>
                   </div>
-                  <Badge variant="secondary" className="font-bold border-none bg-primary/10 text-primary px-3 py-1">
+                  <Badge variant="secondary" className="font-bold border-none bg-muted/50 text-foreground px-2.5 py-1 text-xs">
                     {c.memberCount} Members
                   </Badge>
                 </div>
 
-                <h3 className="text-2xl font-black text-foreground mb-3 group-hover:text-primary transition-colors leading-tight">{c.name}</h3>
-                <p className="text-muted-foreground mb-8 text-sm leading-relaxed line-clamp-2 font-medium">{c.description}</p>
+                <h3 className="text-lg font-black text-foreground mb-2 group-hover:text-primary transition-colors leading-tight line-clamp-1">{c.name}</h3>
+                <p className="text-muted-foreground mb-6 text-xs leading-relaxed line-clamp-2 font-medium flex-1">{c.description}</p>
                 
-                <div className="flex items-center justify-between mt-auto pt-6 border-t border-border">
-                  <div className="flex items-center gap-2 text-[10px] font-black text-muted-foreground uppercase tracking-widest">
-                    <Users className="w-4 h-4 text-primary/40" />
-                    {c.subject}
+                <div className="flex items-center justify-between mt-auto pt-4 border-t border-border/40">
+                  <div className="flex items-center gap-1.5 text-[10px] font-black text-muted-foreground uppercase tracking-widest truncate max-w-[60%]">
+                    <Users className="w-3.5 h-3.5 text-primary/60 shrink-0" />
+                    <span className="truncate">{c.subject}</span>
                   </div>
                   {c.isMember ? (
-                    <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-2">
-                       Joined Fellowship
+                    <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-1.5 shrink-0">
+                       Joined
                     </span>
                   ) : (
                     <button
                       onClick={(e) => { e.stopPropagation(); handleJoin(c.id); }}
-                      className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline underline-offset-4"
+                      className="text-[10px] font-black text-primary uppercase tracking-widest hover:underline underline-offset-4 shrink-0"
                     >
-                      {c.is_private ? 'Req. Fellowship' : 'Join discovery'}
+                      {c.is_private ? 'Req. Join' : 'Join'}
                     </button>
                   )}
                 </div>
