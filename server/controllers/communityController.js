@@ -1,4 +1,5 @@
 import { Community, CommunityMember, CommunityPost, User, Paper, JoinRequest } from '../models/index.js';
+import { sendEmail } from '../utils/email.js';
 
 export const getAllCommunities = async (req, res) => {
   try {
@@ -278,3 +279,103 @@ export const deletePost = async (req, res) => {
     res.status(500).json({ success: false, error: 'Failed to delete post' });
   }
 };
+
+export const deleteCommunity = async (req, res) => {
+  try {
+    const community = await Community.findById(req.params.id);
+    if (!community) return res.status(404).json({ success: false, error: 'Community not found' });
+
+    const isAdmin = await CommunityMember.findOne({ community_id: req.params.id, user_id: req.userId, role: 'admin' });
+    if (!isAdmin) return res.status(403).json({ success: false, error: 'Only admins can delete a community' });
+
+    await Community.deleteOne({ _id: community._id });
+    await CommunityMember.deleteMany({ community_id: community._id });
+    await CommunityPost.deleteMany({ community_id: community._id });
+    await JoinRequest.deleteMany({ community_id: community._id });
+
+    res.json({ success: true, message: 'Community deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting community:', error);
+    res.status(500).json({ success: false, error: 'Failed to delete community' });
+  }
+};
+
+export const addMember = async (req, res) => {
+  try {
+    const { userId, email } = req.body;
+    if (!userId && !email) return res.status(400).json({ success: false, error: 'User ID or Email is required' });
+
+    const community = await Community.findById(req.params.id);
+    if (!community) return res.status(404).json({ success: false, error: 'Community not found' });
+
+    const isAdmin = await CommunityMember.findOne({ community_id: req.params.id, user_id: req.userId, role: 'admin' });
+    if (!isAdmin) return res.status(403).json({ success: false, error: 'Only admins can add members' });
+
+    let userToAdd;
+    if (userId) {
+      userToAdd = await User.findById(userId);
+    } else if (email) {
+      userToAdd = await User.findOne({ email });
+    }
+    
+    if (!userToAdd) return res.status(404).json({ success: false, error: 'User not found' });
+
+    const existingMember = await CommunityMember.findOne({ community_id: req.params.id, user_id: userToAdd._id });
+    if (existingMember) return res.status(409).json({ success: false, error: 'User is already a member' });
+
+    const newMember = new CommunityMember({
+      community_id: req.params.id,
+      user_id: userToAdd._id,
+      role: 'member'
+    });
+    await newMember.save();
+
+    if (community.is_private) {
+      await sendEmail({
+        to: userToAdd.email,
+        subject: `You have been added to ${community.name}`,
+        text: `Hello ${userToAdd.name},\n\nYou have been added to the community "${community.name}" by an admin.\n\nWelcome!`
+      });
+    }
+
+    res.json({ success: true, message: 'Member added successfully', data: { id: userToAdd._id, name: userToAdd.name } });
+  } catch (error) {
+    console.error('Error adding member:', error);
+    res.status(500).json({ success: false, error: 'Failed to add member' });
+  }
+};
+
+export const removeMember = async (req, res) => {
+  try {
+    const community = await Community.findById(req.params.id);
+    if (!community) return res.status(404).json({ success: false, error: 'Community not found' });
+
+    const isAdmin = await CommunityMember.findOne({ community_id: req.params.id, user_id: req.userId, role: 'admin' });
+    if (!isAdmin) return res.status(403).json({ success: false, error: 'Only admins can remove members' });
+
+    if (req.userId === req.params.userId) {
+       return res.status(400).json({ success: false, error: 'You cannot remove yourself using this endpoint. Use leave endpoint instead.' });
+    }
+
+    const memberToRemove = await CommunityMember.findOne({ community_id: req.params.id, user_id: req.params.userId });
+    if (!memberToRemove) return res.status(404).json({ success: false, error: 'Member not found in this community' });
+
+    const userToRemove = await User.findById(req.params.userId);
+
+    await CommunityMember.deleteOne({ _id: memberToRemove._id });
+
+    if (community.is_private && userToRemove) {
+      await sendEmail({
+        to: userToRemove.email,
+        subject: `You have been removed from ${community.name}`,
+        text: `Hello ${userToRemove.name},\n\nYou have been removed from the community "${community.name}" by an admin.`
+      });
+    }
+
+    res.json({ success: true, message: 'Member removed successfully' });
+  } catch (error) {
+    console.error('Error removing member:', error);
+    res.status(500).json({ success: false, error: 'Failed to remove member' });
+  }
+};
+

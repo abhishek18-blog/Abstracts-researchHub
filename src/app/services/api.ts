@@ -369,6 +369,7 @@ export const communityApi = {
     return request<Community[]>(`/community${qs ? '?' + qs : ''}`);
   },
   getById: (id: string) => request<Community>(`/community/${id}`),
+  delete: (id: string) => request<void>(`/community/${id}`, { method: 'DELETE' }),
   create: (data: { name: string; description?: string; subject: string; icon?: string; is_private?: boolean; allow_invites?: boolean }) =>
     request<Community>('/community', { method: 'POST', body: JSON.stringify(data) }),
   join: (id: string) => request<{ message: string; status?: string }>(`/community/${id}/join`, { method: 'POST' }),
