@@ -242,7 +242,7 @@ function FeatureCard({ icon, title, description, colorClass, glowColor }: { icon
       
       <div className="relative z-10">
         <div className={`w-16 h-16 rounded-3xl border flex items-center justify-center mb-8 group-hover:scale-110 transition-transform duration-500 shadow-xl ${colorClass}`}>
-          {React.cloneElement(icon as React.ReactElement, { className: "w-8 h-8 drop-shadow-md" })}
+          {React.cloneElement(icon as React.ReactElement<any>, { className: "w-8 h-8 drop-shadow-md" })}
         </div>
         <h3 className="text-2xl font-bold text-white mb-4 tracking-tight">{title}</h3>
         <p className="text-white/60 leading-relaxed font-medium text-base">{description}</p>
