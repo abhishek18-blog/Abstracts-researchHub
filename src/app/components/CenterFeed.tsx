@@ -103,6 +103,18 @@ export function CenterFeed({ activeTab, onPaperSelect }: CenterFeedProps) {
     }
   };
 
+  const handleDeleteProject = async (projectId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm('Are you sure you want to delete this project?')) return;
+    try {
+      await projectsApi.delete(projectId);
+      setProjects(prev => prev.filter(p => p.id !== projectId));
+    } catch (err) {
+      console.error('Failed to delete project:', err);
+      alert('Failed to delete project. Please try again.');
+    }
+  };
+
   // Loading state (only on initial load)
   if (initialLoading && activeTab !== 'settings') {
     return (
@@ -205,7 +217,16 @@ export function CenterFeed({ activeTab, onPaperSelect }: CenterFeedProps) {
                     <div className={`w-14 h-14 rounded-2xl ${project.color} flex items-center justify-center shadow-lg shadow-black/10`}>
                       <BookOpen className="w-7 h-7 text-white" />
                     </div>
-                    <Badge variant="secondary" className="px-3 py-1 font-bold bg-muted/50 backdrop-blur-sm">{project.paperCount} Papers</Badge>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={(e) => handleDeleteProject(project.id, e)}
+                        className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-full transition-colors opacity-0 group-hover:opacity-100"
+                        title="Delete project"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                      <Badge variant="secondary" className="px-3 py-1 font-bold bg-muted/50 backdrop-blur-sm">{project.paperCount} Papers</Badge>
+                    </div>
                   </div>
                   <h3 className="text-xl font-bold text-foreground mb-2 group-hover:text-primary transition-colors">{project.name}</h3>
                   {project.description && (
