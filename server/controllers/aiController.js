@@ -1,12 +1,12 @@
 import Groq from 'groq-sdk';
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
-const pdf = require('pdf-parse');
+// import { createRequire } from 'module';
+// const require = createRequire(import.meta.url);
+// const pdf = require('pdf-parse');
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
-import { Upload } from '../models/index.js';
+// import { Upload } from '../models/index.js';
 
 dotenv.config();
 
@@ -17,9 +17,10 @@ const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY,
 });
 
+/*
 /**
  * Extracts text from a PDF file
- */
+ * /
 const extractTextFromPDF = async (filePath) => {
   const dataBuffer = fs.readFileSync(filePath);
   const data = await pdf(dataBuffer);
@@ -28,7 +29,7 @@ const extractTextFromPDF = async (filePath) => {
 
 /**
  * Summarize a PDF
- */
+ * /
 export const summarizePDF = async (req, res) => {
   try {
     const { uploadId } = req.body;
@@ -77,6 +78,7 @@ export const summarizePDF = async (req, res) => {
     res.status(500).json({ success: false, error: 'Failed to summarize PDF' });
   }
 };
+*/
 
 /**
  * Suggest research papers based on a topic or text

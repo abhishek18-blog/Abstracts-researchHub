@@ -30,7 +30,7 @@ export function CenterFeed({ activeTab, onPaperSelect }: CenterFeedProps) {
       setError(null);
       const query: Record<string, string> = { sort: sortBy };
       if (searchQuery.trim()) query.search = searchQuery.trim();
-      if (activeTab === 'saved') query.saved_by = 'true';
+      if (activeTab === 'library') query.saved_by = 'true';
       const response = await papersApi.getAll(query);
       setPapers(response.data);
     } catch (err) {
@@ -83,7 +83,7 @@ export function CenterFeed({ activeTab, onPaperSelect }: CenterFeedProps) {
             ? { ...p, saved: newSaved !== undefined ? newSaved : !p.saved }
             : p
         );
-        if (activeTab === 'saved') {
+        if (activeTab === 'library') {
           return updated.filter(p => p.saved);
         }
         return updated;
@@ -295,11 +295,11 @@ export function CenterFeed({ activeTab, onPaperSelect }: CenterFeedProps) {
         <div className="flex items-end justify-between mb-8 pb-4 border-b border-border/50">
           <div>
             <h2 className="text-2xl font-black text-foreground tracking-tight flex items-center gap-3">
-              {activeTab === 'saved' ? 'Saved Papers' : 'Research Library'}
+              {activeTab === 'library' ? 'Library (Saved Papers)' : 'Research Library'}
               <Badge variant="secondary" className="bg-primary/10 text-primary border-none text-xs px-2.5">{papers.length}</Badge>
             </h2>
             <p className="text-sm text-muted-foreground mt-2 font-medium">
-              Browsing {activeTab === 'saved' ? 'your personal collection' : 'curated research insights'}
+              Browsing {activeTab === 'library' ? 'your personal collection' : 'curated research insights'}
             </p>
           </div>
           <div className="flex items-center gap-3">

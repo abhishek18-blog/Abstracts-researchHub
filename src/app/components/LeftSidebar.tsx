@@ -27,13 +27,12 @@ export function LeftSidebar({ activeTab, onTabChange, isGuest }: LeftSidebarProp
   };
 
   const navItems = [
-    { id: 'library',  label: 'Library',      icon: BookOpen },
-    { id: 'projects', label: 'Projects',      icon: FolderOpen },
-    { id: 'saved',    label: 'Saved Papers',  icon: BookmarkCheck, badge: user?.stats?.savedPapers },
-    { id: 'foryou',   label: 'For You',       icon: Newspaper },
-    { id: 'discover', label: 'Discover',      icon: Globe },
-    { id: 'community',label: 'Community',     icon: Users },
-    { id: 'settings', label: 'Settings',      icon: Settings },
+    { id: 'library', label: 'Library', icon: BookOpen, badge: user?.stats?.savedPapers },
+    { id: 'projects', label: 'Projects', icon: FolderOpen },
+    { id: 'foryou', label: 'For You', icon: Newspaper },
+    { id: 'discover', label: 'Discover', icon: Globe },
+    { id: 'community', label: 'Community', icon: Users },
+    { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
   return (

@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+//cloud(mongo atlas) and local
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/abstracts';
 
 export async function initializeDatabase() {
