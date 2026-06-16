@@ -31,7 +31,7 @@ flowchart LR
             UC10["View Paper Details"]
             UC11["Save Paper to Library"]
             UC12["View Personalized Feed"]
-            UC13["View Saved Papers"]
+            UC13["View Library (Saved Papers)"]
             UC14["Upload PDF for Reading"]
         end
 
@@ -139,7 +139,7 @@ flowchart LR
 | UC10 | View Paper Details | User | See full metadata, abstract, PDF link |
 | UC11 | Save Paper to Library | User | Bookmark a paper to personal library |
 | UC12 | View Personalized Feed | User | See AI-curated papers based on interests |
-| UC13 | View Saved Papers | User | Browse all previously bookmarked papers |
+| UC13 | View Library (Saved Papers) | User | Browse all previously saved papers in personal library |
 | UC14 | Upload PDF for Reading | User | Upload a local PDF to the platform |
 | UC15 | Create Research Project | User | Group related papers under a named project |
 | UC16 | Add Papers to Project | User | Attach saved papers to an existing project |
