@@ -1,0 +1,137 @@
+Unused files (76)
+postcss.config.mjs                            
+server/check-db.js                            
+server/controllers/aiController.js            
+server/controllers/authController.js          
+server/controllers/chatController.js          
+server/controllers/communityController.js     
+server/controllers/papersController.js        
+server/controllers/projectsController.js      
+server/controllers/searchController.js        
+server/controllers/statsController.js         
+server/controllers/uploadController.js        
+server/controllers/userController.js          
+server/database.js                            
+server/firebaseAdmin.js                       
+server/index.js                               
+server/middleware/index.js                    
+server/migrate-to-mongo.js                    
+server/models/index.js                        
+server/routes/ai.js                           
+server/routes/auth.js                         
+server/routes/chat.js                         
+server/routes/community.js                    
+server/routes/papers.js                       
+server/routes/projects.js                     
+server/routes/search.js                       
+server/routes/stats.js                        
+server/routes/upload.js                       
+server/routes/user.js                         
+server/utils/email.js                         
+src/app/components/figma/ImageWithFallback.tsx
+src/app/components/ui/accordion.tsx           
+src/app/components/ui/alert-dialog.tsx        
+src/app/components/ui/alert.tsx               
+src/app/components/ui/aspect-ratio.tsx        
+src/app/components/ui/avatar.tsx              
+src/app/components/ui/breadcrumb.tsx          
+src/app/components/ui/button.tsx              
+src/app/components/ui/calendar.tsx            
+src/app/components/ui/card.tsx                
+src/app/components/ui/carousel.tsx            
+src/app/components/ui/chart.tsx               
+src/app/components/ui/checkbox.tsx            
+src/app/components/ui/collapsible.tsx         
+src/app/components/ui/command.tsx             
+src/app/components/ui/context-menu.tsx        
+src/app/components/ui/dialog.tsx              
+src/app/components/ui/drawer.tsx              
+src/app/components/ui/dropdown-menu.tsx       
+src/app/components/ui/form.tsx                
+src/app/components/ui/hover-card.tsx          
+src/app/components/ui/input-otp.tsx           
+src/app/components/ui/input.tsx               
+src/app/components/ui/label.tsx               
+src/app/components/ui/menubar.tsx             
+src/app/components/ui/navigation-menu.tsx     
+src/app/components/ui/pagination.tsx          
+src/app/components/ui/popover.tsx             
+src/app/components/ui/radio-group.tsx         
+src/app/components/ui/resizable.tsx           
+src/app/components/ui/scroll-area.tsx         
+src/app/components/ui/select.tsx              
+src/app/components/ui/separator.tsx           
+src/app/components/ui/sheet.tsx               
+src/app/components/ui/sidebar.tsx             
+src/app/components/ui/skeleton.tsx            
+src/app/components/ui/slider.tsx              
+src/app/components/ui/sonner.tsx              
+src/app/components/ui/switch.tsx              
+src/app/components/ui/table.tsx               
+src/app/components/ui/tabs.tsx                
+src/app/components/ui/textarea.tsx            
+src/app/components/ui/toggle-group.tsx        
+src/app/components/ui/toggle.tsx              
+src/app/components/ui/tooltip.tsx             
+src/app/components/ui/use-mobile.ts           
+test-api.js                                   
+Unused dependencies (47)
+@emotion/react                   package.json:11:6
+@emotion/styled                  package.json:12:6
+@mui/icons-material              package.json:13:6
+@mui/material                    package.json:14:6
+@popperjs/core                   package.json:15:6
+@radix-ui/react-accordion        package.json:16:6
+@radix-ui/react-alert-dialog     package.json:17:6
+@radix-ui/react-aspect-ratio     package.json:18:6
+@radix-ui/react-avatar           package.json:19:6
+@radix-ui/react-checkbox         package.json:20:6
+@radix-ui/react-collapsible      package.json:21:6
+@radix-ui/react-context-menu     package.json:22:6
+@radix-ui/react-dialog           package.json:23:6
+@radix-ui/react-dropdown-menu    package.json:24:6
+@radix-ui/react-hover-card       package.json:25:6
+@radix-ui/react-label            package.json:26:6
+@radix-ui/react-menubar          package.json:27:6
+@radix-ui/react-navigation-menu  package.json:28:6
+@radix-ui/react-popover          package.json:29:6
+@radix-ui/react-radio-group      package.json:31:6
+@radix-ui/react-scroll-area      package.json:32:6
+@radix-ui/react-select           package.json:33:6
+@radix-ui/react-separator        package.json:34:6
+@radix-ui/react-slider           package.json:35:6
+@radix-ui/react-switch           package.json:37:6
+@radix-ui/react-tabs             package.json:38:6
+@radix-ui/react-toggle           package.json:39:6
+@radix-ui/react-toggle-group     package.json:40:6
+@radix-ui/react-tooltip          package.json:41:6
+cmdk                             package.json:44:6
+date-fns                         package.json:45:6
+embla-carousel-react             package.json:46:6
+input-otp                        package.json:48:6
+motion                           package.json:50:6
+next-themes                      package.json:51:6
+react-day-picker                 package.json:52:6
+react-dnd                        package.json:53:6
+react-dnd-html5-backend          package.json:54:6
+react-hook-form                  package.json:55:6
+react-popper                     package.json:56:6
+react-resizable-panels           package.json:57:6
+react-responsive-masonry         package.json:58:6
+react-router                     package.json:59:6
+react-slick                      package.json:60:6
+recharts                         package.json:61:6
+sonner                           package.json:62:6
+vaul                             package.json:65:6
+Referenced optional peerDependencies (2)
+react      package.json
+react-dom  package.json
+Unused exports (5)
+badgeVariants  src/app/components/ui/badge.tsx:46:17
+authApi        src/app/services/api.ts:262:14       
+uploadsApi     src/app/services/api.ts:282:14       
+statsApi       src/app/services/api.ts:320:14       
+app            src/app/services/firebase.ts:13:14   
+Unused exported types (2)
+Upload          interface  src/app/services/api.ts:272:18
+DashboardStats  interface  src/app/services/api.ts:299:18
