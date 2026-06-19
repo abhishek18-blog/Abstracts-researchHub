@@ -27,7 +27,7 @@ export function AboutPage({ onBack }: { onBack: () => void }) {
       <main className="max-w-6xl mx-auto px-6 pt-40">
         <div className="text-center mb-24">
           <h1 className="text-5xl md:text-7xl font-black tracking-tight mb-8 text-slate-900">
-            How to use Abstracts
+            How to use Abstracts?
           </h1>
           <p className="text-xl md:text-2xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
             Your comprehensive guide to discovering, managing, and analyzing research papers using AI.
