@@ -105,6 +105,30 @@ Discussion forums (Communities) divided by research subjects where users can pos
 
 ---
 
+## 🛡️ Security Measures
+
+## 🛡️ Security Measures
+
+### 1. Global HTTP Header Protection (Helmet)
+- **What**: Sets 11 essential HTTP security headers for every server response.
+- **Why**: Protects the application from common web vulnerabilities at the browser level, such as Clickjacking, MIME-Sniffing, and Information Leakage.
+- **How**: Added the `helmet` package as a global middleware in `server/index.js`.
+- **Example**: Strips the `X-Powered-By: Express` header so automated bots cannot easily profile the server stack. It also sets `X-Frame-Options` to prevent malicious sites from invisibly embedding the app in an `iframe` to trick users into clicking hidden buttons.
+
+### 2. Input Sanitization (XSS Prevention)
+- **What**: Cleans up and neutralizes malicious HTML or JavaScript tags from user-submitted text.
+- **Why**: Prevents Cross-Site Scripting (XSS) attacks where an attacker injects malicious code into the database, which would otherwise execute on other users' browsers.
+- **How**: Integrated the `xss` library in `server/controllers/communityController.js` to sanitize the `content` field before saving it.
+- **Example**: If an attacker submits a community post containing `<script>alert('hacked')</script>`, the `xss` library neutralizes it. The script is rendered harmlessly and won't execute when someone else views the community feed.
+
+### 3. Rate Limiting (Spam & DoS Prevention)
+- **What**: Restricts the number of API requests a single IP address can make within a given timeframe.
+- **Why**: Prevents bad actors from spamming the database with fake content or causing a localized Denial of Service (DoS) by overwhelming the server.
+- **How**: Configured `express-rate-limit` and applied it to the `POST /api/community/:id/posts` route in `server/routes/community.js`.
+- **Example**: A script tries to blast 1,000 spam messages into a community chat. The rate limiter, configured for 5 posts per minute, allows the first 5 and then automatically blocks all subsequent requests from that IP, returning a "Too many posts" error.
+
+---
+
 ## 🧭 Navigation
 
 | Tab | Icon | Description |

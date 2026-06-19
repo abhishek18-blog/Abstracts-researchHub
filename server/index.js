@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
@@ -40,6 +41,14 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 // ─── Core Middleware ─────────────────────────────────────────────
+// [SECURITY]: Global HTTP Header Protection
+// Helmet automatically sets 11 essential security headers. It protects against Clickjacking, 
+// prevents MIME-sniffing, and hides the 'X-Powered-By' Express header from attackers.
+app.use(helmet({
+  // Allows our frontend to load images/resources from the backend (like avatars)
+  crossOriginResourcePolicy: { policy: "cross-origin" } 
+}));
+
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:5174',

@@ -109,6 +109,9 @@ export const createCommunity = async (req, res) => {
 
     await community.save();
 
+    // [SECURITY]: Role Assignment (Privilege Escalation Prevention)
+    // The user who creates the community is automatically assigned the 'admin' role, 
+    // securely tying administrative privileges only to the creator initially.
     const initialMember = new CommunityMember({
       community_id: community._id,
       user_id: req.userId,
@@ -136,7 +139,9 @@ export const joinCommunity = async (req, res) => {
     if (existing) return res.status(409).json({ success: false, error: 'Already a member' });
 
     if (community.is_private) {
-      // Create a join request instead
+      // [SECURITY]: Access Control (Private Communities)
+      // If a community is private, users cannot bypass this check to join directly.
+      // We log a 'JoinRequest' which must be explicitly approved by an authorized admin.
       const existingRequest = await JoinRequest.findOne({ community_id: req.params.id, user_id: req.userId, status: 'pending' });
       if (existingRequest) {
         return res.status(409).json({ success: false, error: 'Request already pending' });
@@ -169,6 +174,9 @@ export const getJoinRequests = async (req, res) => {
     const community = await Community.findById(req.params.id);
     if (!community) return res.status(404).json({ success: false, error: 'Community not found' });
 
+    // [SECURITY]: Authorization Check (Admin Only Access)
+    // We query the database to verify the requesting user's role for this specific community.
+    // Sensitive data like join requests is strictly protected from regular members.
     const isAdmin = await CommunityMember.findOne({ community_id: req.params.id, user_id: req.userId, role: 'admin' });
     if (!isAdmin) return res.status(403).json({ success: false, error: 'Only admins can view requests' });
 
@@ -275,6 +283,11 @@ export const deletePost = async (req, res) => {
   try {
     const post = await CommunityPost.findById(req.params.postId);
     if (!post) return res.status(404).json({ success: false, error: 'Post not found' });
+    
+    // [SECURITY]: Resource Ownership Validation (IDOR Prevention)
+    // Insecure Direct Object Reference (IDOR) occurs when an application provides direct access 
+    // to objects based on user-supplied input. Here, we prevent it by validating that the user 
+    // making the request is the actual author of the post.
     if (String(post.user_id) !== String(req.userId)) {
       return res.status(403).json({ success: false, error: 'You can only delete your own posts' });
     }
@@ -292,6 +305,9 @@ export const deleteCommunity = async (req, res) => {
     const community = await Community.findById(req.params.id);
     if (!community) return res.status(404).json({ success: false, error: 'Community not found' });
 
+    // [SECURITY]: Critical Action Authorization
+    // Deleting a community cascades and deletes all posts, members, and requests.
+    // This is highly destructive, so we enforce a strict authorization gate requiring 'admin' role.
     const isAdmin = await CommunityMember.findOne({ community_id: req.params.id, user_id: req.userId, role: 'admin' });
     if (!isAdmin) return res.status(403).json({ success: false, error: 'Only admins can delete a community' });
 
