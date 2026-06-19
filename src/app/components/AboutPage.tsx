@@ -48,7 +48,7 @@ export function AboutPage({ onBack }: { onBack: () => void }) {
             </div>
             <div className="flex-1 w-full bg-white p-2 rounded-3xl shadow-xl border border-slate-200">
               <img
-                src="../Screenshots/discover.png"
+                src="/Screenshots/discover.png"
                 alt="Discover Page Screenshot"
                 className="w-full h-auto rounded-2xl border border-slate-100 object-cover"
               />
@@ -70,7 +70,7 @@ export function AboutPage({ onBack }: { onBack: () => void }) {
             </div>
             <div className="flex-1 w-full bg-white p-2 rounded-3xl shadow-xl border border-slate-200">
               <img
-                src="../Screenshots/foryou.png"
+                src="/Screenshots/foryou.png"
                 alt="For You Feed Screenshot"
                 className="w-full h-auto rounded-2xl border border-slate-100 object-cover"
               />
@@ -92,7 +92,7 @@ export function AboutPage({ onBack }: { onBack: () => void }) {
             </div>
             <div className="flex-1 w-full bg-white p-2 rounded-3xl shadow-xl border border-slate-200">
               <img
-                src="../Screenshots/library.png"
+                src="/Screenshots/library.png"
                 alt="Library Screenshot"
                 className="w-full h-auto rounded-2xl border border-slate-100 object-cover"
               />
@@ -114,7 +114,7 @@ export function AboutPage({ onBack }: { onBack: () => void }) {
             </div>
             <div className="flex-1 w-full bg-white p-2 rounded-3xl shadow-xl border border-slate-200">
               <img
-                src="../Screenshots/ai.png"
+                src="/Screenshots/ai.png"
                 alt="AI Chat Screenshot"
                 className="w-full h-auto rounded-2xl border border-slate-100 object-cover"
               />
@@ -136,7 +136,7 @@ export function AboutPage({ onBack }: { onBack: () => void }) {
             </div>
             <div className="flex-1 w-full bg-white p-2 rounded-3xl shadow-xl border border-slate-200">
               <img
-                src="../Screenshots/community.png"
+                src="/Screenshots/community.png"
                 alt="Community Screenshot"
                 className="w-full h-auto rounded-2xl border border-slate-100 object-cover"
               />
