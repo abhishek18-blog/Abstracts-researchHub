@@ -1,5 +1,6 @@
 import { Community, CommunityMember, CommunityPost, User, Paper, JoinRequest } from '../models/index.js';
 import { sendEmail } from '../utils/email.js';
+import xss from 'xss';
 
 export const getAllCommunities = async (req, res) => {
   try {
@@ -232,6 +233,12 @@ export const createPost = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Post content is required' });
     }
 
+    // [SECURITY]: Input Sanitization (XSS Prevention)
+    // We use the 'xss' library to strip out any potentially malicious HTML or JavaScript tags 
+    // from the user's post content. This ensures that if a user types something like <script>alert('hacked')</script>, 
+    // it gets safely neutralized and won't execute on other users' browsers when they view the post.
+    const sanitizedContent = xss(content.trim());
+
     const community = await Community.findById(req.params.id);
     if (!community) return res.status(404).json({ success: false, error: 'Community not found' });
 
@@ -241,7 +248,7 @@ export const createPost = async (req, res) => {
     const post = new CommunityPost({
       community_id: req.params.id,
       user_id: req.userId,
-      content: content.trim(),
+      content: sanitizedContent,
       paper_id: paper_id || null,
       likes: 0
     });
