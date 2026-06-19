@@ -10,6 +10,7 @@ interface LandingPageProps {
 
 export function LandingPage({ onGetStarted, onGuestAccess, onAboutClick }: LandingPageProps) {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [isMockupActive, setIsMockupActive] = useState(false);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -106,12 +107,15 @@ export function LandingPage({ onGetStarted, onGuestAccess, onAboutClick }: Landi
         </div>
 
         {/* Dashboard Preview / Abstract Visual */}
-        <div className="mt-24 w-full max-w-5xl relative perspective-[2000px] hidden md:block group/mockup">
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent z-20 translate-y-20 h-[150%] mix-blend-multiply" />
-          <div className="rounded-2xl border border-white/10 bg-black/40 backdrop-blur-xl p-2 shadow-2xl transform rotate-x-[15deg] scale-95 hover:rotate-x-0 hover:scale-100 transition-all duration-700 ease-out z-10 relative">
+        <div 
+          className="mt-24 w-full max-w-5xl relative perspective-[2000px] hidden md:block group/mockup cursor-pointer"
+          onClick={() => setIsMockupActive(!isMockupActive)}
+        >
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent z-20 translate-y-20 h-[150%] mix-blend-multiply pointer-events-none" />
+          <div className={`rounded-2xl border border-white/10 bg-black/40 backdrop-blur-xl p-2 shadow-2xl transition-all duration-700 ease-out z-10 relative ${isMockupActive ? 'rotate-x-0 scale-100' : 'transform rotate-x-[15deg] scale-95 hover:rotate-x-0 hover:scale-100'}`}>
             <div className="rounded-xl overflow-hidden border border-white/5 bg-[#0a0a0a] relative flex flex-col h-[400px]">
-              {/* Light Mode Overlay (Reveals on Hover) */}
-              <div className="absolute inset-0 bg-white z-50 opacity-0 group-hover/mockup:opacity-100 transition-opacity duration-700 flex flex-col pointer-events-none text-left">
+              {/* Light Mode Overlay (Reveals on Hover or Click) */}
+              <div className={`absolute inset-0 bg-white z-50 transition-opacity duration-700 flex flex-col pointer-events-none text-left ${isMockupActive ? 'opacity-100' : 'opacity-0 group-hover/mockup:opacity-100'}`}>
                 <div className="h-12 border-b border-gray-200 flex items-center px-4 gap-2 bg-gray-50 shadow-sm">
                   <div className="w-3 h-3 rounded-full bg-red-400" />
                   <div className="w-3 h-3 rounded-full bg-amber-400" />
@@ -150,19 +154,19 @@ export function LandingPage({ onGetStarted, onGuestAccess, onAboutClick }: Landi
               {/* Fake Content */}
               <div className="flex-1 p-6 flex gap-6">
                 <div className="w-1/4 flex flex-col gap-4">
-                  <div className="h-8 w-3/4 bg-white/5 rounded-md group-hover/mockup:bg-white/10 transition-colors duration-500" />
-                  <div className="h-4 w-full bg-white/5 rounded-md group-hover/mockup:translate-x-2 transition-transform duration-500 delay-75" />
-                  <div className="h-4 w-5/6 bg-white/5 rounded-md group-hover/mockup:translate-x-2 transition-transform duration-500 delay-100" />
-                  <div className="h-4 w-4/6 bg-white/5 rounded-md group-hover/mockup:translate-x-2 transition-transform duration-500 delay-150" />
+                  <div className={`h-8 w-3/4 rounded-md transition-colors duration-500 ${isMockupActive ? 'bg-white/10' : 'bg-white/5 group-hover/mockup:bg-white/10'}`} />
+                  <div className={`h-4 w-full bg-white/5 rounded-md transition-transform duration-500 delay-75 ${isMockupActive ? 'translate-x-2' : 'group-hover/mockup:translate-x-2'}`} />
+                  <div className={`h-4 w-5/6 bg-white/5 rounded-md transition-transform duration-500 delay-100 ${isMockupActive ? 'translate-x-2' : 'group-hover/mockup:translate-x-2'}`} />
+                  <div className={`h-4 w-4/6 bg-white/5 rounded-md transition-transform duration-500 delay-150 ${isMockupActive ? 'translate-x-2' : 'group-hover/mockup:translate-x-2'}`} />
                 </div>
                 <div className="w-3/4 flex flex-col gap-4">
-                  <div className="h-48 w-full bg-gradient-to-br from-indigo-500/10 to-blue-500/10 rounded-xl border border-white/5 relative overflow-hidden flex items-center justify-center group-hover/mockup:border-indigo-500/30 transition-colors duration-500">
-                     <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAyMCAwIEwgMCAwIDAgMjAiIGZpbGw9Im5vbmUiIHN0cm9rZT0icmdiYSgyNTUsMjU1LDI1NSwwLjAyKSIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2dyaWQpIi8+PC9zdmc+')] opacity-50 group-hover/mockup:opacity-100 transition-opacity duration-1000 group-hover/mockup:scale-[1.02]" />
-                     <Brain className="w-16 h-16 text-indigo-400/50 group-hover/mockup:text-indigo-400 group-hover/mockup:scale-110 transition-all duration-700 animate-pulse group-hover/mockup:animate-none" />
+                  <div className={`h-48 w-full bg-gradient-to-br from-indigo-500/10 to-blue-500/10 rounded-xl relative overflow-hidden flex items-center justify-center transition-colors duration-500 border ${isMockupActive ? 'border-indigo-500/30' : 'border-white/5 group-hover/mockup:border-indigo-500/30'}`}>
+                     <div className={`absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSIyMCIgaGVpZ2h0PSIyMCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAyMCAwIEwgMCAwIDAgMjAiIGZpbGw9Im5vbmUiIHN0cm9rZT0icmdiYSgyNTUsMjU1LDI1NSwwLjAyKSIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2dyaWQpIi8+PC9zdmc+')] transition-all duration-1000 ${isMockupActive ? 'opacity-100 scale-[1.02]' : 'opacity-50 group-hover/mockup:opacity-100 group-hover/mockup:scale-[1.02]'}`} />
+                     <Brain className={`w-16 h-16 transition-all duration-700 ${isMockupActive ? 'text-indigo-400 scale-110 animate-none' : 'text-indigo-400/50 group-hover/mockup:text-indigo-400 group-hover/mockup:scale-110 animate-pulse group-hover/mockup:animate-none'}`} />
                   </div>
                   <div className="flex gap-4">
-                    <div className="h-24 flex-1 bg-white/5 rounded-xl border border-white/5 group-hover/mockup:-translate-y-1 transition-transform duration-500 delay-100" />
-                    <div className="h-24 flex-1 bg-white/5 rounded-xl border border-white/5 group-hover/mockup:-translate-y-1 transition-transform duration-500 delay-200" />
+                    <div className={`h-24 flex-1 bg-white/5 rounded-xl border border-white/5 transition-transform duration-500 delay-100 ${isMockupActive ? '-translate-y-1' : 'group-hover/mockup:-translate-y-1'}`} />
+                    <div className={`h-24 flex-1 bg-white/5 rounded-xl border border-white/5 transition-transform duration-500 delay-200 ${isMockupActive ? '-translate-y-1' : 'group-hover/mockup:-translate-y-1'}`} />
                   </div>
                 </div>
               </div>
