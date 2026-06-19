@@ -5,9 +5,10 @@ import { ArrowRight, Globe, Search, Brain, Users, Sparkles, ChevronRight } from 
 interface LandingPageProps {
   onGetStarted: () => void;
   onGuestAccess: () => void;
+  onAboutClick: () => void;
 }
 
-export function LandingPage({ onGetStarted, onGuestAccess }: LandingPageProps) {
+export function LandingPage({ onGetStarted, onGuestAccess, onAboutClick }: LandingPageProps) {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
@@ -45,6 +46,12 @@ export function LandingPage({ onGetStarted, onGuestAccess }: LandingPageProps) {
             <BrandLogo isAuthScreen={true} className="text-3xl md:text-5xl font-black tracking-tight" />
           </div>
           <div className="flex items-center gap-6">
+            <button 
+              onClick={onAboutClick}
+              className="text-base md:text-lg font-semibold text-slate-600 hover:text-black transition-colors hidden sm:block"
+            >
+              About App
+            </button>
             <button 
               onClick={onGuestAccess}
               className="text-base md:text-lg font-semibold text-slate-600 hover:text-black transition-colors hidden sm:block"

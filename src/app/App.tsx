@@ -14,6 +14,7 @@ import { userApi } from './services/api';
 import { InterestsModal } from './components/InterestsModal';
 import { LandingPage } from './components/LandingPage';
 import { GuestFeatureLock } from './components/GuestFeatureLock';
+import { AboutPage } from './components/AboutPage';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState(() => {
@@ -27,6 +28,7 @@ export default function App() {
   const [isGuest, setIsGuest] = useState(!!localStorage.getItem('guest'));
   const [showLanding, setShowLanding] = useState(!localStorage.getItem('token') && !localStorage.getItem('guest'));
   const [showAuth, setShowAuth] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
 
   useEffect(() => {
     // Check if we have a valid session on load
@@ -49,6 +51,10 @@ export default function App() {
     return () => window.removeEventListener('openDiscoverTab', handleSwitchTab);
   }, []);
 
+  if (showAbout) {
+    return <AboutPage onBack={() => setShowAbout(false)} />;
+  }
+
   if (showLanding) {
     return (
       <LandingPage
@@ -62,6 +68,7 @@ export default function App() {
           setShowLanding(false);
           setActiveTab('discover'); // Force discover tab for guests
         }}
+        onAboutClick={() => setShowAbout(true)}
       />
     );
   }
