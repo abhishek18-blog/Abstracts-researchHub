@@ -107,8 +107,6 @@ Discussion forums (Communities) divided by research subjects where users can pos
 
 ## 🛡️ Security Measures
 
-## 🛡️ Security Measures
-
 ### 1. Global HTTP Header Protection (Helmet)
 - **What**: Sets 11 essential HTTP security headers for every server response.
 - **Why**: Protects the application from common web vulnerabilities at the browser level, such as Clickjacking, MIME-Sniffing, and Information Leakage.
@@ -121,13 +119,33 @@ Discussion forums (Communities) divided by research subjects where users can pos
 - **How**: Integrated the `xss` library in `server/controllers/communityController.js` to sanitize the `content` field before saving it.
 - **Example**: If an attacker submits a community post containing `<script>alert('hacked')</script>`, the `xss` library neutralizes it. The script is rendered harmlessly and won't execute when someone else views the community feed.
 
-### 3. Rate Limiting (Spam & DoS Prevention)
-- **What**: Restricts the number of API requests a single IP address can make within a given timeframe.
+### 3. Spam & DoS Protection (Community Rate Limiting)
+- **What**: Restricts the number of API requests a single IP address can make to the community chat within a given timeframe.
 - **Why**: Prevents bad actors from spamming the database with fake content or causing a localized Denial of Service (DoS) by overwhelming the server.
-- **How**: Configured `express-rate-limit` and applied it to the `POST /api/community/:id/posts` route in `server/routes/community.js`.
-- **Example**: A script tries to blast 1,000 spam messages into a community chat. The rate limiter, configured for 5 posts per minute, allows the first 5 and then automatically blocks all subsequent requests from that IP, returning a "Too many posts" error.
+- **How**: Configured `express-rate-limit` and applied it to the `POST /api/community/:id/posts` route in `server/routes/community.js` (max 5 requests per minute).
+- **Example**: A script tries to blast 1,000 spam messages into a community chat. The rate limiter allows the first 5 and then automatically blocks all subsequent requests from that IP.
 
----
+### 4. Brute-Force Password Protection (Auth Rate Limiting)
+- **What**: Limits the number of login/registration attempts a single IP address can make.
+- **Why**: Neutralizes brute-force or dictionary attacks where a script repeatedly attempts to guess user passwords.
+- **How**: Implemented `authRateLimiter` using `express-rate-limit` on the `/login` and `/register` endpoints in `server/routes/auth.js` (max 5 attempts per 15 minutes).
+- **Example**: If a hacker tries 5 incorrect passwords, their IP is completely blocked from the authentication endpoint for 15 minutes, making password guessing impossible.
+
+### 5. Authentication & Session Security (JWT & Bcrypt)
+- **What**: Stateless session management and secure password storage.
+- **Why**: Ensures user credentials are not stored in plain text and sessions cannot be forged.
+- **How**: Uses `bcryptjs` (10 salt rounds) for password hashing and `jsonwebtoken` for issuing signed tokens. The custom `authMiddleware` intercepts API requests to verify token validity before granting access to private routes.
+
+### 6. Resource Ownership Validation (IDOR Prevention)
+- **What**: Checks if the user requesting to modify/delete a resource is the actual creator of that resource.
+- **Why**: Prevents Insecure Direct Object Reference (IDOR) attacks, where users manipulate IDs in the API to delete data belonging to other users.
+- **How**: Implemented in controllers (e.g., `communityController.js` `deletePost`) by strictly comparing the `post.user_id` against the authenticated `req.userId`.
+
+### 7. File Upload Restrictions
+- **What**: Strictly limits the size and type of user file uploads.
+- **Why**: Prevents server memory exhaustion (DoS) and blocks the upload of malicious executable scripts.
+- **How**: Uses `multer` configuration in `server/routes/upload.js` to enforce a 50MB file size limit and explicit MIME-type checking (allowing only PDFs and specific Image formats).
+
 
 ## 🧭 Navigation
 
