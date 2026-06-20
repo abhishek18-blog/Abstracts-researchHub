@@ -30,6 +30,7 @@ This project demonstrates strong full-stack capabilities, modern UI/UX sensibili
 - **📚 Dynamic Research Library**: Organize findings into tailored projects with progress tracking.
 - **🤖 Built-in AI Assistant**: Summarize abstracts, explain complex concepts, and generate paper suggestions via an integrated AI chat interface.
 - **🤝 Community Hub**: Dedicated spaces for peer review, discussions, and shared insights.
+- **📊 Data Analytics**: Built-in Firebase Analytics to track user behavior, top search queries, and community formation, segmented by guest and authenticated users.
 - **🌗 Theme-Aware UI**: Beautifully crafted dark/light modes featuring glassmorphism, dynamic gradients (`#1e1b4b` to `#3b82f6`), and micro-animations.
 
 ---

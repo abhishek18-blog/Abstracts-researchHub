@@ -15,6 +15,9 @@ import { InterestsModal } from './components/InterestsModal';
 import { LandingPage } from './components/LandingPage';
 import { GuestFeatureLock } from './components/GuestFeatureLock';
 import { AboutPage } from './components/AboutPage';
+import { auth, analytics } from './services/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import { setUserId } from 'firebase/analytics';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState(() => {
@@ -49,6 +52,23 @@ export default function App() {
     };
     window.addEventListener('openDiscoverTab', handleSwitchTab);
     return () => window.removeEventListener('openDiscoverTab', handleSwitchTab);
+  }, []);
+
+  // Analytics Tracking: Distinguish between Guest and Logged-In Users
+  // This listener fires whenever the user logs in or logs out.
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        // User is logged in -> Assign their Firebase UID to Analytics
+        // This ensures subsequent events are attributed to the correct user
+        setUserId(analytics, user.uid);
+      } else {
+        // No user -> Clear ID (They are a guest)
+        // This prevents mixing up guest activity with the last logged-in user
+        setUserId(analytics, null);
+      }
+    });
+    return () => unsubscribe();
   }, []);
 
   if (showAbout) {

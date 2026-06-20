@@ -5,6 +5,8 @@ import {
 } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { communityApi, papersApi, userApi, type Community, type CommunityPost, type Paper, type UserProfile } from '../services/api';
+import { analytics } from '../services/firebase';
+import { logEvent } from 'firebase/analytics';
 
 /* ─────────────────────────────────────────────────────────────────────── */
 
@@ -171,6 +173,11 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
         ...createForm, 
         subject: finalSubject,
         icon 
+      });
+      // Analytics Tracking: Track when new communities are formed
+      // This allows you to visualize community growth over time in the dashboard
+      logEvent(analytics, "create_community", {
+        community_name: createForm.name 
       });
       setCommunities(prev => [res.data, ...prev]);
       setShowCreate(false);

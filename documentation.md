@@ -103,6 +103,12 @@ A persistent sidebar allows users to chat with an AI assistant for summarizing a
 ### 6. Community Collaboration
 Discussion forums (Communities) divided by research subjects where users can post insights and attach papers for peer review.
 
+### 7. User Behavior Analytics
+Integrated Firebase Analytics to automatically track user behavior and engagement metrics without needing a complex backend logging system:
+- **Search Tracking**: Records search terms within the library discovery to generate "Top Search Terms" insights.
+- **Community Growth**: Logs when new communities are established to track engagement over time.
+- **User Segmentation**: Differentiates events logged by authenticated researchers versus guests by assigning Firebase User IDs during authentication state changes.
+
 ---
 
 ## 🛡️ Security Measures

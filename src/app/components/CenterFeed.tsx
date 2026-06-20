@@ -5,6 +5,8 @@ import { ProjectDetailView } from './ProjectDetailView';
 import { useState, useEffect, useCallback } from 'react';
 import { Badge } from './ui/badge';
 import { papersApi, projectsApi, type Paper, type Project } from '../services/api';
+import { analytics } from '../services/firebase';
+import { logEvent } from 'firebase/analytics';
 
 interface CenterFeedProps {
   activeTab: string;
@@ -68,6 +70,13 @@ export function CenterFeed({ activeTab, onPaperSelect }: CenterFeedProps) {
     const timer = setTimeout(() => {
       if (activeTab !== 'projects' && activeTab !== 'settings') {
         fetchPapers(false);
+        // Analytics Tracking: Record search queries
+        // This helps populate the "Top Search Terms" chart in Firebase Analytics
+        if (searchQuery.trim()) {
+          logEvent(analytics, "search", {
+            search_term: searchQuery.trim()
+          });
+        }
       }
     }, 300);
     return () => clearTimeout(timer);
