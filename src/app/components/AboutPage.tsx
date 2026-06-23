@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { ArrowLeft, Search, LayoutDashboard, Brain, Users } from 'lucide-react';
+import { ArrowLeft, Search, LayoutDashboard, Brain, Users, Sparkles, Globe } from 'lucide-react';
 import { BrandLogo } from './BrandLogo';
 
 export function AboutPage({ onBack }: { onBack: () => void }) {
@@ -24,7 +24,95 @@ export function AboutPage({ onBack }: { onBack: () => void }) {
         </div>
       </div>
 
-      <main className="max-w-6xl mx-auto px-6 pt-40">
+      <main className="max-w-6xl mx-auto px-6 pt-32">
+
+      {/* Bento Grid Advertisement Section */}
+      <section className="relative z-20 w-full mb-32">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+             <h2 className="text-4xl md:text-5xl font-black mb-4 tracking-tight text-slate-900">Your Research Journey</h2>
+             <p className="text-slate-600 text-xl max-w-2xl mx-auto">From chaos to clarity in a single, powerful platform.</p>
+          </div>
+
+          <div className="flex flex-col gap-8">
+            
+            {/* Card 1: Are you into research? */}
+            <div className="relative bg-gradient-to-br from-[#111] to-[#0a0a0a] border border-slate-800 rounded-[2rem] p-10 overflow-hidden group hover:border-indigo-500/50 transition-colors duration-500 shadow-2xl">
+              <div className="absolute inset-0 bg-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className="flex flex-col md:flex-row items-center gap-12 relative z-10">
+                <div className="flex-1 order-2 md:order-1 text-left">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/70 text-xs font-bold mb-4 uppercase tracking-wider">
+                    <Sparkles className="w-3 h-3 text-indigo-400" /> The Problem
+                  </div>
+                  <h3 className="text-3xl md:text-5xl font-black mb-4 text-white">Are you into research?</h3>
+                  <p className="text-white/60 text-lg md:text-xl leading-relaxed font-medium">
+                    Are you a researcher, academic, or scholar drowning in a sea of open tabs and information overload? Struggling to find the perfect place to organize your insights?
+                  </p>
+                </div>
+                <div className="flex-1 w-full flex items-center justify-center order-1 md:order-2">
+                   <img src="/images/research1.jpg" alt="Research" className="w-full h-auto aspect-video md:aspect-square object-cover rounded-2xl shadow-2xl transform group-hover:scale-105 transition-transform duration-700 border border-white/10" />
+                </div>
+              </div>
+            </div>
+
+            {/* Card 2: The Struggle */}
+            <div className="relative bg-gradient-to-br from-[#111] to-[#0a0a0a] border border-slate-800 rounded-[2rem] p-10 overflow-hidden group hover:border-rose-500/50 transition-colors duration-500 shadow-2xl">
+              <div className="absolute inset-0 bg-rose-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className="flex flex-col md:flex-row-reverse items-center gap-12 relative z-10">
+                <div className="flex-1 order-2 md:order-1 text-left md:text-right">
+                  <h3 className="text-3xl md:text-5xl font-black mb-4 text-white">The Struggle is Real</h3>
+                  <p className="text-white/60 text-lg md:text-xl leading-relaxed font-medium">
+                    Tired of drowning in endless tabs? Information overload is a daily struggle. Keeping track of dozens of papers can feel impossible.
+                  </p>
+                </div>
+                <div className="flex-1 w-full flex items-center justify-center order-1 md:order-2">
+                  <img src="/images/tabs.jpg" alt="Tabs" className="w-full h-auto aspect-video md:aspect-square object-cover rounded-2xl shadow-2xl transform group-hover:scale-105 transition-transform duration-700 border border-white/10" />
+                </div>
+              </div>
+            </div>
+
+            {/* Card 3: Meet Abstracts */}
+            <div className="relative bg-gradient-to-br from-[#111] to-[#0a0a0a] border border-slate-800 rounded-[2rem] p-10 overflow-hidden group hover:border-emerald-500/50 transition-colors duration-500 shadow-2xl">
+              <div className="absolute inset-0 bg-emerald-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className="flex flex-col md:flex-row items-center gap-12 relative z-10">
+                <div className="flex-1 order-2 md:order-1 text-left">
+                  <h3 className="text-3xl md:text-5xl font-black mb-4 text-white">Meet Abstracts</h3>
+                  <p className="text-white/60 text-lg md:text-xl leading-relaxed font-medium">
+                    We couldn't find the perfect place to organize it all—so we built it. Imagine a single, intelligent tool explicitly designed to streamline your workflow.
+                  </p>
+                </div>
+                <div className="flex-1 w-full flex items-center justify-center order-1 md:order-2">
+                  <div className="w-full rounded-2xl overflow-hidden border border-white/10 shadow-2xl bg-white flex items-center justify-center transform group-hover:scale-105 transition-transform duration-700">
+                    <img src="/images/manAndAbstract.png" alt="Using Abstracts" className="w-full h-auto object-contain" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Card 4: Research Reimagined */}
+            <div className="relative bg-gradient-to-br from-[#111] to-[#0a0a0a] border border-slate-800 rounded-[2rem] p-10 overflow-hidden group hover:border-cyan-500/50 transition-colors duration-500 shadow-2xl">
+              <div className="absolute inset-0 bg-cyan-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className="flex flex-col md:flex-row-reverse items-center gap-12 relative z-10">
+                <div className="flex-1 order-2 md:order-1 text-left md:text-right flex flex-col items-start md:items-end">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-white/70 text-xs font-bold mb-4 uppercase tracking-wider">
+                    <Globe className="w-3 h-3 text-cyan-400" /> The Result
+                  </div>
+                  <h3 className="text-3xl md:text-5xl font-black mb-4 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-400">Research Reimagined</h3>
+                  <p className="text-white/60 text-lg md:text-xl leading-relaxed font-medium">
+                    Stop fighting your workspace. Let Abstracts handle the organization so you can focus entirely on what you do best: your research.
+                  </p>
+                </div>
+                <div className="flex-1 w-full flex items-center justify-center order-1 md:order-2">
+                   <img src="/images/manHappy.jpg" alt="Happy" className="w-full h-auto aspect-video md:aspect-square object-cover rounded-2xl shadow-2xl transform group-hover:scale-105 transition-transform duration-700 border border-white/10" />
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </section>
+
+      <div className="w-full h-px bg-slate-200 mb-24" />
         <div className="text-center mb-24">
           <h1 className="text-5xl md:text-7xl font-black tracking-tight mb-8 text-slate-900">
             How to use Abstracts?
