@@ -411,7 +411,7 @@ export const searchApi = {
     request<Paper>('/search/papers/import', { method: 'POST', body: JSON.stringify(paper) }),
 };
 
-// ─── AI (Groq) ───────────────────────────────────────────────────────────────
+// ─── AI ────────────────────────────────────────────────────────────────────────
 
 export const aiApi = {
   summarizePDF: (uploadId: string) =>

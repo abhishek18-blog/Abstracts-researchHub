@@ -21,10 +21,10 @@ async function getAIResponse(messages, userMessage) {
 
       const chatCompletion = await groq.chat.completions.create({
         messages: [
-          { role: 'system', content: 'You are a helpful AI research assistant for the Abstracts platform. CRITICAL: Do NOT use markdown bolding or asterisks (**) anywhere in your output. Provide plain text only.' },
+          { role: 'system', content: 'Act as an AI research assistant. Provide plain text only. NO markdown, bolding, or asterisks.' },
           ...formattedHistory
         ],
-        model: 'llama-3.3-70b-versatile',
+        model: 'openai/gpt-oss-120b',
       });
 
       return chatCompletion.choices[0].message.content.replace(/\*\*/g, '');
@@ -136,10 +136,8 @@ export const createConversation = async (req, res) => {
     const welcomeMsg = new Message({
       conversation_id: conversation._id,
       role: 'assistant',
-      content: "Hi! I'm your AI research assistant. I'm now powered by Groq (LLaMA 3.3). I can help you understand papers, explain formulas, summarize content, and answer questions about your research. What would you like to know?",
+      content: "Hi! I'm your AI research assistant. I'm now powered by openai/gpt-oss-120b. I can help you understand papers, explain formulas, summarize content, and answer questions about your research. What would you like to know?",
     });
-    
-    await welcomeMsg.save();
 
     res.status(201).json({ success: true, data: { conversation: conversation.toJSON(), messages: [welcomeMsg.toJSON()] } });
   } catch (error) {

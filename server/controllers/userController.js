@@ -1,20 +1,50 @@
+// ============================================================
+// controllers/userController.js — User Profile Management
+// ============================================================
+// This file handles operations on the currently logged-in user's account:
+//   1. getUserProfile   → Read user data + activity stats
+//   2. updateUserProfile → Edit name, email, avatar, interests, etc.
+//   3. uploadAvatar      → Upload a profile picture
+//   4. addPassword       → Set a password for Google-auth users
+//   5. deleteAccount     → Delete the user and all their data
+//
+// NOTE: All these functions are protected routes.
+// The authMiddleware runs BEFORE these and sets req.userId from the JWT.
+// So req.userId always holds the ID of the currently logged-in user.
+// ============================================================
+
 import { User, SavedPaper, Project, ReadingProgress } from '../models/index.js';
 
+
+// ─────────────────────────────────────────────
+// 👤 GET USER PROFILE — Fetch profile + stats
+// ─────────────────────────────────────────────
+// GET /api/user
+// Returns the user's basic info AND a summary of their activity:
+// how many papers they saved, how many projects they have, etc.
 export const getUserProfile = async (req, res) => {
   try {
+    // req.userId is injected by authMiddleware after verifying the JWT token
     const user = await User.findById(req.userId);
     if (!user) {
       return res.status(404).json({ success: false, error: 'User not found' });
     }
 
+    // Count how many papers this user has saved to their library
     const savedCount = await SavedPaper.countDocuments({ user_id: req.userId });
-    const projectCount = await Project.countDocuments({ user_id: req.userId });
-    const readingCount = await ReadingProgress.countDocuments({ user_id: req.userId, progress: { $gt: 0 } });
 
+    // Count how many research projects this user has created
+    const projectCount = await Project.countDocuments({ user_id: req.userId });
+
+    // Count papers where reading progress is more than 0% (i.e. they actually started reading)
+    const readingCount = await ReadingProgress.countDocuments({ user_id: req.userId, progress: { $gt: 0 } });
+    // $gt: 0 means "greater than 0" — MongoDB query operator
+
+    // Return the user object with the stats bundled in
     res.json({
       success: true,
       data: {
-        ...user.toJSON(),
+        ...user.toJSON(), // spread the user fields (name, email, role, etc.)
         stats: {
           savedPapers: savedCount,
           projects: projectCount,
@@ -28,10 +58,20 @@ export const getUserProfile = async (req, res) => {
   }
 };
 
+
+// ─────────────────────────────────────────────
+// ✏️ UPDATE USER PROFILE — Edit account info
+// ─────────────────────────────────────────────
+// PUT /api/user
+// Body can contain any of: { name, email, role, avatar_initials, avatar_url, interests, hasSelectedInterests }
+// Only the fields that are sent in the body will be updated (partial update).
 export const updateUserProfile = async (req, res) => {
   try {
+    // Destructure only the expected fields from the request body
     const { name, email, role, avatar_initials, avatar_url } = req.body;
 
+    // Build an "updates" object dynamically — only include fields that were actually sent.
+    // This prevents accidentally overwriting fields with undefined.
     const updates = {};
     if (name !== undefined) updates.name = name;
     if (email !== undefined) updates.email = email;
@@ -39,10 +79,12 @@ export const updateUserProfile = async (req, res) => {
     if (avatar_initials !== undefined) updates.avatar_initials = avatar_initials;
     if (avatar_url !== undefined) updates.avatar_url = avatar_url;
     
-    // Add interests array handling
+    // Also handle interest-related fields (used during the onboarding/topic selection step)
     if (req.body.interests !== undefined) updates.interests = req.body.interests;
     if (req.body.hasSelectedInterests !== undefined) updates.hasSelectedInterests = req.body.hasSelectedInterests;
 
+    // Find the user by ID and apply only the updated fields.
+    // { new: true } returns the updated document instead of the old one.
     const updated = await User.findByIdAndUpdate(req.userId, updates, { new: true });
     if (!updated) {
       return res.status(404).json({ success: false, error: 'User not found' });
@@ -55,14 +97,27 @@ export const updateUserProfile = async (req, res) => {
   }
 };
 
+
+// ─────────────────────────────────────────────
+// 🖼️ UPLOAD AVATAR — Set a profile picture
+// ─────────────────────────────────────────────
+// POST /api/user/avatar  (multipart/form-data with field name "avatar")
+// The file is handled by multer middleware (set up in routes/user.js) before this runs.
+// req.file contains the uploaded file's buffer (raw binary data).
 export const uploadAvatar = async (req, res) => {
   try {
+    // If no file was included in the request, reject it
     if (!req.file) {
       return res.status(400).json({ success: false, error: 'No file uploaded' });
     }
 
+    // Convert the image binary (buffer) into a Base64-encoded string.
+    // Base64 lets us store and send images as plain text inside JSON.
+    // The resulting string looks like: "data:image/png;base64,iVBORw0KGgo..."
     const base64Image = req.file.buffer.toString('base64');
     const avatarUrl = `data:${req.file.mimetype};base64,${base64Image}`;
+
+    // Save the base64 image string directly to the user document in MongoDB
     const user = await User.findByIdAndUpdate(req.userId, { avatar_url: avatarUrl }, { new: true });
 
     if (!user) {
@@ -76,16 +131,32 @@ export const uploadAvatar = async (req, res) => {
   }
 };
 
+// bcrypt is imported here (and not at the top) because only addPassword uses it in this file.
+// In Node.js/ES modules, the import position doesn't matter for functionality —
+// but ideally all imports should be at the top of the file for clarity.
 import bcrypt from 'bcryptjs';
 
+
+// ─────────────────────────────────────────────
+// 🔐 ADD PASSWORD — Let Google users set a password
+// ─────────────────────────────────────────────
+// POST /api/user/password
+// Body: { password }
+// When a user signs up via Google, they have no password in our DB.
+// This endpoint lets them add one so they can also log in with email/password.
 export const addPassword = async (req, res) => {
   try {
     const { password } = req.body;
+
+    // Validate: password must exist and be at least 6 characters
     if (!password || password.length < 6) {
       return res.status(400).json({ success: false, error: 'Invalid password' });
     }
 
+    // Hash the new password before storing (never store plain text!)
     const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Update the user's password field in the database
     const user = await User.findByIdAndUpdate(req.userId, { password: hashedPassword }, { new: true });
     
     if (!user) {
@@ -99,17 +170,27 @@ export const addPassword = async (req, res) => {
   }
 };
 
+
+// ─────────────────────────────────────────────
+// 🗑️ DELETE ACCOUNT — Remove user and all their data
+// ─────────────────────────────────────────────
+// DELETE /api/user/account
+// This is a hard delete — everything is permanently removed.
+// We delete the user first, then clean up all their related data.
 export const deleteAccount = async (req, res) => {
   try {
+    // Step 1: Delete the user document from the User collection
     const user = await User.findByIdAndDelete(req.userId);
     if (!user) {
       return res.status(404).json({ success: false, error: 'User not found' });
     }
 
-    // Clean up associated data
-    await SavedPaper.deleteMany({ user_id: req.userId });
-    await Project.deleteMany({ user_id: req.userId });
-    await ReadingProgress.deleteMany({ user_id: req.userId });
+    // Step 2: Clean up all data associated with this user.
+    // deleteMany() removes all documents that match the filter.
+    // We must delete these or they become "orphaned" data with no owner.
+    await SavedPaper.deleteMany({ user_id: req.userId });     // remove their saved papers
+    await Project.deleteMany({ user_id: req.userId });        // remove their research projects
+    await ReadingProgress.deleteMany({ user_id: req.userId }); // remove their reading history
 
     res.json({ success: true, message: 'Account deleted successfully' });
   } catch (error) {

@@ -308,7 +308,7 @@ export function AIChatSidebar({ isOpen, onClose }: AIChatSidebarProps) {
               <h3 className="font-extrabold text-foreground tracking-tight">AI Assistant</h3>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500"></span>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-80">Groq LLaMA 3.3</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground opacity-80">openai/gpt-oss-120b</span>
               </div>
             </div>
           </div>
