@@ -118,8 +118,7 @@ export default function App() {
   const renderMain = () => {
     switch (activeTab) {
       case 'settings':  return <SettingsView />;
-      case 'community': return <CommunityView onPaperSelect={setSelectedPaper} />;
-      // 'foryou' and 'discover' are always mounted below — not rendered here
+      // 'community', 'foryou', and 'discover' are always mounted below
       default: return <CenterFeed activeTab={activeTab} onPaperSelect={setSelectedPaper} />;
     }
   };
@@ -131,7 +130,7 @@ export default function App() {
         <LeftSidebar activeTab={activeTab} onTabChange={setActiveTab} isGuest={isGuest} />
 
         {/* Center Content — switch-rendered tabs */}
-        {!['foryou', 'discover'].includes(activeTab) && !isGuest && renderMain()}
+        {!['foryou', 'discover', 'community'].includes(activeTab) && !isGuest && renderMain()}
 
         {/* Guest Lock Screen */}
         {isGuest && activeTab !== 'discover' && (
@@ -149,6 +148,9 @@ export default function App() {
         </div>
         <div className={`flex-1 overflow-hidden ${activeTab === 'discover' ? 'flex' : 'hidden'}`}>
           <DiscoverView />
+        </div>
+        <div className={`flex-1 overflow-hidden ${(activeTab === 'community' && !isGuest) ? 'flex' : 'hidden'}`}>
+          <CommunityView onPaperSelect={setSelectedPaper} />
         </div>
 
         {/* AI Chat Sidebar */}

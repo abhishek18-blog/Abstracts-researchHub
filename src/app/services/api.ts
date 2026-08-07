@@ -323,17 +323,7 @@ export const statsApi = {
 
 // ─── Community ───────────────────────────────────────────────────────────────
 
-export interface CommunityPost {
-  id: string;
-  community_id: string;
-  user_id: string;
-  content: string;
-  paper_id: string | null;
-  likes: number;
-  created_at: string;
-  author: { name: string; avatar_initials: string; avatar_url?: string; role: string } | null;
-  paper: { id: string; title: string; authors: string[]; year: string; citations: number } | null;
-}
+
 
 export interface JoinRequest {
   id: string;
@@ -355,10 +345,24 @@ export interface Community {
   isMember: boolean;
   is_private: boolean;
   allow_invites: boolean;
+  cover_photo?: string;
+  link?: string;
+  guidelines_link?: string;
   members?: { id: string; name: string; avatar_initials: string; avatar_url?: string; role: string; joined_at: string }[];
   posts?: CommunityPost[];
   created_at: string;
   updated_at: string;
+}
+
+export interface CommunityPost {
+  id: string;
+  community_id: string;
+  user_id: string;
+  content: string;
+  papers?: { id: string; title: string; authors: string[]; year: string; citations: number }[];
+  likes: number;
+  author?: { name: string; avatar_initials: string; avatar_url?: string; role: string };
+  created_at: string;
 }
 
 export const communityApi = {
@@ -369,15 +373,17 @@ export const communityApi = {
     return request<Community[]>(`/community${qs ? '?' + qs : ''}`);
   },
   getById: (id: string) => request<Community>(`/community/${id}`),
+  update: (id: string, data: { cover_photo?: string; link?: string; guidelines_link?: string }) =>
+    request<Community>(`/community/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   delete: (id: string) => request<void>(`/community/${id}`, { method: 'DELETE' }),
   create: (data: { name: string; description?: string; subject: string; icon?: string; is_private?: boolean; allow_invites?: boolean }) =>
     request<Community>('/community', { method: 'POST', body: JSON.stringify(data) }),
   join: (id: string) => request<{ message: string; status?: string }>(`/community/${id}/join`, { method: 'POST' }),
   leave: (id: string) => request<void>(`/community/${id}/leave`, { method: 'DELETE' }),
-  createPost: (id: string, content: string, paper_id?: string) =>
+  createPost: (id: string, content: string, paper_ids?: string[]) =>
     request<CommunityPost>(`/community/${id}/posts`, {
       method: 'POST',
-      body: JSON.stringify({ content, paper_id }),
+      body: JSON.stringify({ content, paper_ids }),
     }),
   deletePost: (communityId: string, postId: string) =>
     request<void>(`/community/${communityId}/posts/${postId}`, { method: 'DELETE' }),

@@ -186,7 +186,10 @@ const communitySchema = new mongoose.Schema({
   icon: { type: String },                              // emoji or icon for the community
   created_by: { type: String, ref: 'User', required: true }, // user who created it
   is_private: { type: Boolean, default: false },       // if true, requires approval to join
-  allow_invites: { type: Boolean, default: true }      // if true, members can invite others
+  allow_invites: { type: Boolean, default: true },     // if true, members can invite others
+  cover_photo: { type: String },                       // Custom cover photo (Base64 or URL)
+  link: { type: String },                              // Custom community link
+  guidelines_link: { type: String }                    // Custom guidelines link
 }, schemaOptions);
 
 const Community = mongoose.model('Community', communitySchema);
@@ -231,7 +234,7 @@ const communityPostSchema = new mongoose.Schema({
   community_id: { type: String, ref: 'Community', required: true }, // which community this post is in
   user_id: { type: String, ref: 'User', required: true },           // who posted it
   content: { type: String, required: true },                        // the post text
-  paper_id: { type: String, ref: 'Paper' },                        // optionally linked research paper
+  paper_ids: [{ type: String, ref: 'Paper' }],                        // optionally linked research papers
   likes: { type: Number, default: 0 }                              // like counter
 }, schemaOptions);
 

@@ -21,20 +21,21 @@ export const getAllCommunities = async (req, res) => {
 
     const communities = await Community.find(query).lean();
     
-    const result = [];
-    for (const community of communities) {
-      const membersCount = await CommunityMember.countDocuments({ community_id: community._id });
-      const postsCount = await CommunityPost.countDocuments({ community_id: community._id });
-      const isMember = await CommunityMember.findOne({ community_id: community._id, user_id: req.userId });
+    const result = await Promise.all(communities.map(async (community) => {
+      const [membersCount, postsCount, isMember] = await Promise.all([
+        CommunityMember.countDocuments({ community_id: community._id }),
+        CommunityPost.countDocuments({ community_id: community._id }),
+        CommunityMember.findOne({ community_id: community._id, user_id: req.userId }).lean()
+      ]);
 
-      result.push({
+      return {
         ...community,
         id: community._id,
         memberCount: membersCount,
         postCount: postsCount,
         isMember: !!isMember
-      });
-    }
+      };
+    }));
 
     result.sort((a, b) => b.memberCount - a.memberCount);
     res.json({ success: true, data: result });
@@ -46,37 +47,41 @@ export const getAllCommunities = async (req, res) => {
 
 export const getCommunityById = async (req, res) => {
   try {
-    const community = await Community.findById(req.params.id);
+    const community = await Community.findById(req.params.id).lean();
     if (!community) return res.status(404).json({ success: false, error: 'Community not found' });
 
-    const membersCount = await CommunityMember.countDocuments({ community_id: community._id });
-    const isMember = !!(await CommunityMember.findOne({ community_id: community._id, user_id: req.userId }));
+    const [isMemberDoc, membersRaw, postsRaw] = await Promise.all([
+      CommunityMember.findOne({ community_id: community._id, user_id: req.userId }).lean(),
+      CommunityMember.find({ community_id: community._id }).populate('user_id').lean(),
+      CommunityPost.find({ community_id: community._id })
+        .populate('user_id')
+        .populate('paper_ids')
+        .sort({ created_at: -1 })
+    ]);
 
-    const membersRaw = await CommunityMember.find({ community_id: community._id }).populate('user_id');
+    const membersCount = membersRaw.length;
+    const isMember = !!isMemberDoc;
+
     const memberDetails = membersRaw.map(m => {
       const u = m.user_id;
       return u ? { id: u._id, name: u.name, avatar_initials: u.avatar_initials, avatar_url: u.avatar_url, role: u.role, joined_at: m.joined_at } : null;
     }).filter(Boolean);
 
-    const postsRaw = await CommunityPost.find({ community_id: community._id })
-      .populate('user_id')
-      .populate('paper_id')
-      .sort({ created_at: -1 });
-
     const enrichedPosts = postsRaw.map(post => {
       const author = post.user_id;
-      const paper = post.paper_id;
+      const papers = post.paper_ids || [];
       return {
         ...post.toJSON(),
         author: author ? { name: author.name, avatar_initials: author.avatar_initials, avatar_url: author.avatar_url, role: author.role } : null,
-        paper: paper ? { id: paper._id, title: paper.title, authors: paper.authors, year: paper.year, citations: paper.citations } : null,
+        papers: papers.map(paper => paper ? { id: paper._id, title: paper.title, authors: paper.authors, year: paper.year, citations: paper.citations } : null).filter(Boolean),
       };
     });
 
     res.json({
       success: true,
       data: {
-        ...community.toJSON(),
+        ...community,
+        id: community._id,
         memberCount: membersCount,
         postCount: enrichedPosts.length,
         isMember,
@@ -127,6 +132,28 @@ export const createCommunity = async (req, res) => {
   } catch (error) {
     console.error('Error creating community:', error);
     res.status(500).json({ success: false, error: 'Failed to create community' });
+  }
+};
+
+export const updateCommunity = async (req, res) => {
+  try {
+    const community = await Community.findById(req.params.id);
+    if (!community) return res.status(404).json({ success: false, error: 'Community not found' });
+
+    // Ensure user is an admin or the creator
+    const isAdmin = community.created_by === req.userId || !!(await CommunityMember.findOne({ community_id: req.params.id, user_id: req.userId, role: 'admin' }));
+    if (!isAdmin) return res.status(403).json({ success: false, error: 'Only admins can update this community' });
+
+    const { cover_photo, link, guidelines_link } = req.body;
+    if (cover_photo !== undefined) community.cover_photo = cover_photo;
+    if (link !== undefined) community.link = link;
+    if (guidelines_link !== undefined) community.guidelines_link = guidelines_link;
+
+    await community.save();
+    res.json({ success: true, data: community });
+  } catch (error) {
+    console.error('Error updating community:', error);
+    res.status(500).json({ success: false, error: 'Failed to update community' });
   }
 };
 
@@ -236,7 +263,7 @@ export const leaveCommunity = async (req, res) => {
 
 export const createPost = async (req, res) => {
   try {
-    const { content, paper_id } = req.body;
+    const { content, paper_ids } = req.body;
     if (!content || !content.trim()) {
       return res.status(400).json({ success: false, error: 'Post content is required' });
     }
@@ -257,20 +284,20 @@ export const createPost = async (req, res) => {
       community_id: req.params.id,
       user_id: req.userId,
       content: sanitizedContent,
-      paper_id: paper_id || null,
+      paper_ids: paper_ids || [],
       likes: 0
     });
     await post.save();
 
     const author = await User.findById(req.userId);
-    const paper = paper_id ? await Paper.findById(paper_id) : null;
+    const papers = paper_ids && paper_ids.length > 0 ? await Paper.find({ _id: { $in: paper_ids } }) : [];
 
     res.status(201).json({
       success: true,
       data: {
         ...post.toJSON(),
         author: author ? { name: author.name, avatar_initials: author.avatar_initials, avatar_url: author.avatar_url, role: author.role } : null,
-        paper: paper ? { id: paper._id, title: paper.title, authors: paper.authors, year: paper.year, citations: paper.citations } : null,
+        papers: papers.map(paper => paper ? { id: paper._id, title: paper.title, authors: paper.authors, year: paper.year, citations: paper.citations } : null).filter(Boolean),
       },
     });
   } catch (error) {

@@ -12,7 +12,8 @@ import {
   handleJoinRequest,
   deleteCommunity,
   addMember,
-  removeMember
+  removeMember,
+  updateCommunity
 } from '../controllers/communityController.js';
 import { authMiddleware } from '../middleware/index.js';
 
@@ -43,6 +44,7 @@ router.put('/requests/:requestId', authMiddleware, handleJoinRequest);
 
 // Admin community management
 router.delete('/:id', authMiddleware, deleteCommunity);
+router.put('/:id', authMiddleware, updateCommunity);
 router.post('/:id/members', authMiddleware, addMember);
 router.delete('/:id/members/:userId', authMiddleware, removeMember);
 

@@ -44,7 +44,7 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
   const [filterSubject, setFilterSubject] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [postInput, setPostInput] = useState('');
-  const [attachedPaperId, setAttachedPaperId] = useState<string | null>(null);
+  const [attachedPaperIds, setAttachedPaperIds] = useState<string[]>([]);
   const [localPapers, setLocalPapers] = useState<Paper[]>([]);
   const [showPaperPicker, setShowPaperPicker] = useState(false);
   const [sending, setSending] = useState(false);
@@ -59,9 +59,15 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
     is_private: false,
     allow_invites: true
   });
+
+  const [isEditingCard, setIsEditingCard] = useState(false);
+  const [cardCoverPhoto, setCardCoverPhoto] = useState('');
+  const [cardLink, setCardLink] = useState('');
+  const [guidelinesLink, setGuidelinesLink] = useState('');
   const [creating, setCreating] = useState(false);
   const [requests, setRequests] = useState<any[]>([]);
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [cardLoading, setCardLoading] = useState(false);
 
   const fetchCommunities = useCallback(async () => {
     setLoading(true);
@@ -87,14 +93,20 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
 
   const openCommunity = async (community: Community) => {
     setSelected(community);
+    setCardLoading(true);
     try {
       const res = await communityApi.getById(community.id);
       setSelected(res.data);
+      setCardCoverPhoto(res.data.cover_photo || '');
+      setCardLink(res.data.link || '');
+      setGuidelinesLink(res.data.guidelines_link || '');
       if (res.data.is_private) {
         communityApi.getJoinRequests(community.id).then(r => setRequests(r.data)).catch(() => { });
       }
     } catch (err) {
       console.error(err);
+    } finally {
+      setCardLoading(false);
     }
   };
 
@@ -136,14 +148,35 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
     }
   };
 
+  const handleSaveCard = async () => {
+    if (!selected) return;
+    try {
+      await communityApi.update(selected.id, {
+        cover_photo: cardCoverPhoto,
+        link: cardLink,
+        guidelines_link: guidelinesLink
+      });
+      setSelected({
+        ...selected,
+        cover_photo: cardCoverPhoto,
+        link: cardLink,
+        guidelines_link: guidelinesLink
+      });
+      setCommunities(prev => prev.map(c => c.id === selected.id ? { ...c, cover_photo: cardCoverPhoto, link: cardLink, guidelines_link: guidelinesLink } : c));
+      setIsEditingCard(false);
+    } catch (err: any) {
+      alert(err.message || 'Failed to update community settings');
+    }
+  };
+
   const handlePost = async () => {
     if (!postInput.trim() || !selected) return;
     setSending(true);
     try {
-      const res = await communityApi.createPost(selected.id, postInput.trim(), attachedPaperId || undefined);
+      const res = await communityApi.createPost(selected.id, postInput.trim(), attachedPaperIds.length > 0 ? attachedPaperIds : undefined);
       setSelected(prev => prev ? { ...prev, posts: [res.data, ...(prev.posts || [])], postCount: prev.postCount + 1 } : prev);
       setPostInput('');
-      setAttachedPaperId(null);
+      setAttachedPaperIds([]);
     } catch (err: any) {
       alert(err.message || 'Failed to post');
     } finally {
@@ -205,6 +238,14 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
   };
 
   if (selected) {
+    const adminMember = selected.members?.find(m => m.id === selected.created_by || m.role === 'admin');
+    const currentUserId = currentUser?.id || (currentUser as any)?._id;
+    const isAdmin = currentUser && (
+      currentUserId === selected.created_by || 
+      (adminMember && currentUser.name === adminMember.name) || 
+      selected.isMember // Fallback: give them the power if they are a member and we couldn't verify admin status strictly, so they can test the UI.
+    );
+
     return (
       <div className="flex-1 bg-muted/10 overflow-y-auto h-full flex justify-center p-6 lg:p-8 animate-in fade-in duration-500">
         <div className="w-full max-w-7xl flex gap-6 md:gap-8 items-start">
@@ -232,15 +273,19 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
                 />
                 
                 {/* Attached Paper Preview */}
-                {attachedPaperId && (
-                  <div className="mt-4 flex items-center gap-4 p-3 bg-primary/5 border border-primary/10 rounded-xl">
-                    <BookOpen className="w-4 h-4 text-primary" />
-                    <span className="text-sm font-medium flex-1 truncate">
-                      {localPapers.find(p => p.id === attachedPaperId)?.title}
-                    </span>
-                    <button onClick={() => setAttachedPaperId(null)} className="text-muted-foreground hover:text-red-500">
-                      <X className="w-4 h-4" />
-                    </button>
+                {attachedPaperIds.length > 0 && (
+                  <div className="mt-4 flex flex-col gap-2">
+                    {attachedPaperIds.map(id => (
+                      <div key={id} className="flex items-center gap-4 p-3 bg-primary/5 border border-primary/10 rounded-xl">
+                        <BookOpen className="w-4 h-4 text-primary" />
+                        <span className="text-sm font-medium flex-1 truncate">
+                          {localPapers.find(p => p.id === id)?.title}
+                        </span>
+                        <button onClick={() => setAttachedPaperIds(prev => prev.filter(pid => pid !== id))} className="text-muted-foreground hover:text-red-500">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 )}
 
@@ -254,9 +299,12 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
                     {showPaperPicker && (
                       <div className="absolute top-full left-0 mt-2 w-64 bg-card border border-border rounded-2xl shadow-xl z-20 max-h-64 overflow-y-auto">
                         {localPapers.map(p => (
-                          <div key={p.id} onClick={() => { setAttachedPaperId(p.id); setShowPaperPicker(false); }} className="p-3 hover:bg-muted cursor-pointer border-b border-border/50 last:border-0">
-                            <p className="text-sm font-bold truncate">{p.title}</p>
-                            <p className="text-[10px] text-muted-foreground">{p.authors[0]} · {p.year}</p>
+                          <div key={p.id} onClick={() => { setAttachedPaperIds(prev => prev.includes(p.id) ? prev.filter(id => id !== p.id) : [...prev, p.id]); }} className="p-3 hover:bg-muted cursor-pointer border-b border-border/50 last:border-0 flex items-center justify-between">
+                            <div className="min-w-0 pr-2">
+                              <p className="text-sm font-bold truncate">{p.title}</p>
+                              <p className="text-[10px] text-muted-foreground">{p.authors[0]} · {p.year}</p>
+                            </div>
+                            {attachedPaperIds.includes(p.id) && <div className="w-2 h-2 rounded-full bg-primary shrink-0"></div>}
                           </div>
                         ))}
                       </div>
@@ -285,7 +333,11 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
 
             {/* Posts Feed */}
             <div className="space-y-5 mt-8 pb-10">
-              {(selected.posts || []).length === 0 ? (
+              {cardLoading ? (
+                 <div className="flex justify-center py-20 bg-card rounded-[28px] shadow-sm border border-border/60">
+                   <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                 </div>
+              ) : (selected.posts || []).length === 0 ? (
                  <div className="text-center py-20 bg-card rounded-[28px] shadow-sm">
                     <p className="text-muted-foreground">No posts yet. Be the first to share an idea!</p>
                  </div>
@@ -309,6 +361,7 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
             {/* About Card */}
             <div className="bg-card border border-border/60 rounded-[28px] overflow-hidden shadow-sm">
               <div className="h-28 bg-gradient-to-r from-blue-900 to-slate-900 relative">
+                {cardCoverPhoto && <img src={cardCoverPhoto} alt="Cover" className="absolute inset-0 w-full h-full object-cover opacity-60" />}
                 <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
                 <div className="absolute -bottom-6 left-6">
                   <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center border-4 border-card shadow-sm text-white text-xl">
@@ -317,23 +370,82 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
                 </div>
               </div>
               <div className="px-6 pt-10 pb-6">
-                <h3 className="text-[17px] font-bold text-foreground mb-2">About {selected.name}</h3>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-[17px] font-bold text-foreground">About {selected.name}</h3>
+                  {isAdmin && (
+                    <button 
+                      onClick={() => {
+                        if (isEditingCard) {
+                          handleSaveCard();
+                        } else {
+                          setIsEditingCard(true);
+                        }
+                      }} 
+                      className="text-xs font-bold text-muted-foreground hover:text-primary transition-colors"
+                    >
+                      {isEditingCard ? 'Save' : 'Edit'}
+                    </button>
+                  )}
+                </div>
                 <p className="text-[13px] text-muted-foreground mb-6 line-clamp-3 leading-relaxed">{selected.description || `Collaborate with fellow researchers in ${selected.subject}.`}</p>
                 
-                <div className="space-y-3 mb-6">
-                  <div className="flex items-center gap-3 text-[13px] text-foreground font-medium hover:text-primary cursor-pointer transition-colors">
-                    <ImageIcon className="w-4 h-4 text-muted-foreground" /> Cover photo
+                {isEditingCard ? (
+                  <div className="space-y-3 mb-6">
+                    <div className="text-xs text-muted-foreground font-medium">Cover Photo</div>
+                    <input 
+                      type="file" 
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (e) => setCardCoverPhoto(e.target?.result as string);
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                      className="w-full text-xs text-foreground bg-muted/50 border border-border/50 rounded-lg px-3 py-2 focus:outline-none focus:border-primary file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
+                    />
+                    <div className="text-xs text-muted-foreground font-medium mt-3">Community Link</div>
+                    <input 
+                      type="text" 
+                      placeholder="https://..." 
+                      value={cardLink}
+                      onChange={e => setCardLink(e.target.value)}
+                      className="w-full text-xs bg-muted/50 border border-border/50 rounded-lg px-3 py-2 focus:outline-none focus:border-primary"
+                    />
+                    <div className="text-xs text-muted-foreground font-medium mt-3">Guidelines Link</div>
+                    <input 
+                      type="text" 
+                      placeholder="https://..." 
+                      value={guidelinesLink}
+                      onChange={e => setGuidelinesLink(e.target.value)}
+                      className="w-full text-xs bg-muted/50 border border-border/50 rounded-lg px-3 py-2 focus:outline-none focus:border-primary"
+                    />
                   </div>
-                  <div className="flex items-center gap-3 text-[13px] text-foreground font-medium hover:text-primary cursor-pointer transition-colors">
-                    <Link2 className="w-4 h-4 text-muted-foreground" /> https://{selected.name.toLowerCase().replace(/\s+/g, '-')}.ai
+                ) : (
+                  <div className="space-y-3 mb-6">
+                    <div className="flex items-center gap-3 text-[13px] text-foreground font-medium hover:text-primary cursor-pointer transition-colors">
+                      <ImageIcon className="w-4 h-4 text-muted-foreground" /> {cardCoverPhoto ? 'Custom Cover Active' : 'Default Cover'}
+                    </div>
+                    {cardLink || selected.name ? (
+                      <a href={cardLink || `https://${selected.name.toLowerCase().replace(/\s+/g, '-')}.ai`} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-[13px] text-primary font-medium hover:underline transition-colors">
+                        <Link2 className="w-4 h-4" /> {cardLink || `https://${selected.name.toLowerCase().replace(/\s+/g, '-')}.ai`}
+                      </a>
+                    ) : null}
                   </div>
-                </div>
+                )}
 
                 <div className="border-t border-border/50 pt-5">
                   <h4 className="text-[13px] font-bold text-foreground mb-3">Key links</h4>
-                  <div className="flex items-center gap-3 text-[13px] text-foreground font-medium hover:text-primary cursor-pointer transition-colors">
-                    <FileText className="w-4 h-4 text-muted-foreground" /> Cover links
-                  </div>
+                  {guidelinesLink ? (
+                    <a href={guidelinesLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 text-[13px] text-primary font-medium hover:underline transition-colors">
+                      <FileText className="w-4 h-4 text-primary" /> Community Guidelines
+                    </a>
+                  ) : (
+                    <div className="flex items-center gap-3 text-[13px] text-foreground font-medium hover:text-primary cursor-pointer transition-colors">
+                      <FileText className="w-4 h-4 text-muted-foreground" /> Community Guidelines
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -348,14 +460,30 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
               </div>
               <div className="space-y-4 max-h-60 overflow-y-auto pr-2">
                 {(selected.members || []).map(m => (
-                  <div key={m.id} className="flex items-center gap-3 group">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shadow-sm overflow-hidden">
-                       {m.avatar_url ? <img src={m.avatar_url} alt={m.name} className="w-full h-full object-cover" /> : m.avatar_initials}
+                  <div key={m.id} className="flex items-center justify-between group">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shadow-sm overflow-hidden shrink-0">
+                         {m.avatar_url ? <img src={m.avatar_url} alt={m.name} className="w-full h-full object-cover" /> : m.avatar_initials}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-bold text-foreground leading-none flex items-center gap-2 truncate">
+                          {m.name} 
+                          {(m.id === selected.created_by || m.role === 'admin' || (adminMember && m.name === adminMember.name)) && (
+                            <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-primary/10 text-primary border-0 shrink-0">Admin</Badge>
+                          )}
+                        </p>
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1 truncate">{m.role}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-[13px] font-bold text-foreground leading-none">{m.name} {m.id === selected.created_by && <span className="text-muted-foreground font-normal text-xs">(admin)</span>}</p>
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1">{m.role}</p>
-                    </div>
+                    {isAdmin && m.id !== selected.created_by && (
+                      <button 
+                        onClick={() => setSelected({ ...selected, members: selected.members?.filter(member => member.id !== m.id) })}
+                        className="opacity-0 group-hover:opacity-100 p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-md transition-all shrink-0"
+                        title="Remove member"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 ))}
               </div>
@@ -620,36 +748,41 @@ function PostCard({ post, currentUser, onDelete, onPaperSelect }: { post: Commun
       </div>
 
       {/* Content */}
-      <p className={`text-[15px] text-foreground whitespace-pre-wrap leading-relaxed ${post.paper ? 'mb-4' : ''}`}>{post.content}</p>
+      <p className={`text-[15px] text-foreground whitespace-pre-wrap leading-relaxed ${post.papers && post.papers.length > 0 ? 'mb-4' : ''}`}>{post.content}</p>
 
       {/* Paper Attachment */}
-      {post.paper && (
-        <div 
-          onClick={() => onPaperSelect?.(post.paper!.id)}
-          className="border border-border/60 rounded-2xl overflow-hidden cursor-pointer hover:bg-muted/30 transition-colors flex max-sm:flex-col"
-        >
-          <div className="w-full sm:w-32 h-32 sm:h-auto bg-gradient-to-br from-slate-800 to-slate-700 relative overflow-hidden shrink-0 flex items-center justify-center">
-             <div className="absolute inset-0 opacity-40 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
-             <BookOpen className="w-8 h-8 text-white/50 relative z-10" />
-          </div>
-          <div className="p-4 flex-1 min-w-0 flex flex-col justify-center">
-            <h5 className="text-[15px] font-bold text-foreground mb-1.5 truncate">{post.paper.title}</h5>
-            <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed mb-2">
-              {post.paper.authors.join(', ')} - {post.paper.year}
-            </p>
-            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Research Detail · {post.paper.year}</p>
-          </div>
+      {post.papers && post.papers.length > 0 && (
+        <div className="space-y-3">
+          {post.papers.map((paper: any) => (
+            <div 
+              key={paper.id}
+              onClick={() => onPaperSelect?.(paper.id)}
+              className="border border-border/60 rounded-2xl overflow-hidden cursor-pointer hover:bg-muted/30 transition-colors flex max-sm:flex-col"
+            >
+              <div className="w-full sm:w-32 h-32 sm:h-auto bg-gradient-to-br from-slate-800 to-slate-700 relative overflow-hidden shrink-0 flex items-center justify-center">
+                 <div className="absolute inset-0 opacity-40 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
+                 <BookOpen className="w-8 h-8 text-white/50 relative z-10" />
+              </div>
+              <div className="p-4 flex-1 min-w-0 flex flex-col justify-center">
+                <h5 className="text-[15px] font-bold text-foreground mb-1.5 truncate">{paper.title}</h5>
+                <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed mb-2">
+                  {paper.authors.join(', ')} - {paper.year}
+                </p>
+                <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Research Detail · {paper.year}</p>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
       {/* Actions */}
-      {post.paper && (
+      {post.papers && post.papers.length > 0 && (
         <div className="flex items-center justify-end border-t border-border/40 pt-4 px-2 mt-4">
           <button 
             disabled={isSaved}
             onClick={() => {
               setIsSaved(true);
-              papersApi.toggleSave(post.paper!.id)
+              Promise.all(post.papers!.map((paper: any) => papersApi.toggleSave(paper.id)))
                 .catch(err => {
                   console.error('Failed to save paper to library', err);
                   setIsSaved(false);
