@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Users, Search, Plus, X, Globe, MessageSquare, BookOpen, Loader2,
-  LogIn, LogOut, Heart, Trash2, Send, ChevronLeft, Sparkles, Lock
+  LogIn, LogOut, Heart, Trash2, Send, ChevronLeft, Sparkles, Lock,
+  Paperclip, Link2, Smile, ThumbsUp, MoreHorizontal, ChevronUp, Image as ImageIcon, FileText, Share2
 } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { communityApi, papersApi, userApi, type Community, type CommunityPost, type Paper, type UserProfile } from '../services/api';
@@ -50,9 +51,9 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
 
   // Create form state
-  const [createForm, setCreateForm] = useState({ 
-    name: '', 
-    description: '', 
+  const [createForm, setCreateForm] = useState({
+    name: '',
+    description: '',
     subject: SUBJECT_OPTIONS[0],
     customSubject: '',
     is_private: false,
@@ -80,8 +81,8 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
   useEffect(() => { fetchCommunities(); }, [fetchCommunities]);
 
   useEffect(() => {
-    userApi.getProfile().then(r => setCurrentUser(r.data)).catch(() => {});
-    papersApi.getAll().then(r => setLocalPapers(r.data)).catch(() => {});
+    userApi.getProfile().then(r => setCurrentUser(r.data)).catch(() => { });
+    papersApi.getAll().then(r => setLocalPapers(r.data)).catch(() => { });
   }, []);
 
   const openCommunity = async (community: Community) => {
@@ -90,7 +91,7 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
       const res = await communityApi.getById(community.id);
       setSelected(res.data);
       if (res.data.is_private) {
-        communityApi.getJoinRequests(community.id).then(r => setRequests(r.data)).catch(() => {});
+        communityApi.getJoinRequests(community.id).then(r => setRequests(r.data)).catch(() => { });
       }
     } catch (err) {
       console.error(err);
@@ -161,33 +162,33 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!createForm.name.trim()) return;
-    
-    const finalSubject = createForm.subject === 'Other' && createForm.customSubject 
-      ? createForm.customSubject 
+
+    const finalSubject = createForm.subject === 'Other' && createForm.customSubject
+      ? createForm.customSubject
       : createForm.subject;
 
     setCreating(true);
     try {
       const icon = SUBJECT_ICONS[createForm.subject] || '🔬';
-      const res = await communityApi.create({ 
-        ...createForm, 
+      const res = await communityApi.create({
+        ...createForm,
         subject: finalSubject,
-        icon 
+        icon
       });
       // Analytics Tracking: Track when new communities are formed
       // This allows you to visualize community growth over time in the dashboard
       logEvent(analytics, "create_community", {
-        community_name: createForm.name 
+        community_name: createForm.name
       });
       setCommunities(prev => [res.data, ...prev]);
       setShowCreate(false);
-      setCreateForm({ 
-        name: '', 
-        description: '', 
-        subject: SUBJECT_OPTIONS[0], 
-        customSubject: '', 
-        is_private: false, 
-        allow_invites: true 
+      setCreateForm({
+        name: '',
+        description: '',
+        subject: SUBJECT_OPTIONS[0],
+        customSubject: '',
+        is_private: false,
+        allow_invites: true
       });
     } catch (err) { console.error(err); }
     finally { setCreating(false); }
@@ -205,231 +206,171 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
 
   if (selected) {
     return (
-      <div className="flex-1 bg-background overflow-hidden flex flex-col h-full animate-in fade-in duration-500">
-        <div className="p-6 md:p-8 border-b border-border/50 bg-card/80 backdrop-blur-xl sticky top-0 z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 md:gap-6 shadow-sm">
-          <div className="flex items-center gap-4 group">
-            <button 
-              onClick={() => setSelected(null)}
-              className="p-3 bg-muted/30 hover:bg-muted border border-border/50 rounded-2xl transition-all group-hover:-translate-x-1"
-            >
-              <ChevronLeft className="w-5 h-5 text-foreground" />
-            </button>
-            <div className="flex flex-col justify-center">
-              <div className="flex items-center gap-3 mb-1.5">
-                <h2 className="text-2xl md:text-3xl font-black text-foreground tracking-tighter leading-none">{selected.name}</h2>
-                {selected.is_private && <Badge variant="outline" className="text-[10px] font-black tracking-widest uppercase py-0.5 border-primary/20 text-primary bg-primary/5">Private</Badge>}
-              </div>
-              <div className="flex items-center gap-3 text-xs font-bold text-muted-foreground uppercase tracking-widest">
-                <span className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> {selected.memberCount} researchers</span>
-                <span className="w-1 h-1 bg-border rounded-full"></span>
-                <span className="flex items-center gap-1.5"><BookOpen className="w-3.5 h-3.5" /> {selected.subject}</span>
-              </div>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            {currentUser && selected.created_by === currentUser.id && (
-              <button
-                onClick={() => handleDeleteCommunity(selected.id)}
-                disabled={actionLoading === selected.id}
-                className="flex items-center gap-2 px-5 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] md:text-xs transition-all bg-red-500/10 text-red-600 hover:bg-red-500 hover:text-white border border-red-500/20 shadow-sm"
-                title="Delete Community"
+      <div className="flex-1 bg-muted/10 overflow-y-auto h-full flex justify-center p-6 lg:p-8 animate-in fade-in duration-500">
+        <div className="w-full max-w-7xl flex gap-6 md:gap-8 items-start">
+          
+          {/* Main Feed Column */}
+          <div className="flex-1 max-w-3xl space-y-6">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-xl font-bold text-foreground">New Post</h2>
+              <button 
+                onClick={() => setSelected(null)}
+                className="text-muted-foreground hover:text-foreground text-sm font-medium flex items-center gap-2"
               >
-                <Trash2 className="w-4 h-4" />
-                <span className="hidden sm:inline">Delete</span>
+                <ChevronLeft className="w-4 h-4" /> Back
               </button>
-            )}
-            <button
-              onClick={() => selected.isMember ? handleLeave(selected.id) : handleJoin(selected.id)}
-              disabled={actionLoading === selected.id}
-              className={`flex items-center gap-2 px-6 py-3 rounded-xl font-black uppercase tracking-widest text-[10px] md:text-xs transition-all shadow-sm border ${
-                selected.isMember
-                  ? 'bg-secondary/50 text-secondary-foreground hover:bg-red-500 hover:text-white border-border/50 hover:border-red-500'
-                  : 'bg-primary text-primary-foreground hover:bg-primary/90 border-transparent shadow-primary/20'
-              }`}
-            >
-              {actionLoading === selected.id ? <Loader2 className="w-4 h-4 animate-spin" /> : selected.isMember ? <><LogOut className="w-4 h-4" /> Leave Field</> : <><LogIn className="w-4 h-4" /> Join Discovery</>}
-            </button>
-          </div>
-        </div>
+            </div>
 
-        <div className="flex-1 overflow-y-auto p-8">
-          <div className="max-w-4xl mx-auto space-y-12">
-            {/* Membership Petitions */}
-            {selected.is_private && requests.length > 0 && (
-              <div className="bg-primary/5 border border-primary/10 rounded-3xl p-8 animate-in slide-in-from-top-4 duration-500 relative overflow-hidden">
-                 <div className="absolute top-0 right-0 p-8 opacity-10">
-                  <Users className="w-24 h-24 text-primary" />
-                </div>
-                <h3 className="text-xl font-black text-foreground uppercase tracking-widest mb-8 flex items-center gap-3">
-                  <span className="w-2 h-2 bg-primary rounded-full animate-pulse"></span>
-                  Membership Petitions
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {requests.map(req => (
-                    <div key={req.id} className="bg-background border border-border p-6 rounded-2xl flex items-center justify-between shadow-sm hover:shadow-md transition-shadow">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center shadow-lg overflow-hidden">
-                          {req.user_id?.avatar_url ? (
-                            <img src={req.user_id.avatar_url} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="text-white font-black">{req.user_id?.avatar_initials || '?'}</span>
-                          )}
-                        </div>
-                        <div>
-                          <p className="font-bold text-foreground">{req.user_id?.name || 'Researcher'}</p>
-                          <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest mt-0.5">Awaiting Review</p>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                         <button
-                          onClick={() => handleHandleRequest(req.id, 'accepted')}
-                          className="p-2.5 bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 rounded-xl hover:bg-emerald-500 hover:text-white transition-all shadow-sm"
-                        >
-                          <Plus className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={() => handleHandleRequest(req.id, 'rejected')}
-                          className="p-2.5 bg-red-500/10 text-red-500 border border-red-500/20 rounded-xl hover:bg-red-500 hover:text-white transition-all shadow-sm"
-                        >
-                          <X className="w-5 h-5" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* Feed */}
-              <div className="lg:col-span-2 space-y-6">
-                {/* Post Composer */}
-                {selected.isMember ? (
-                  <div className="bg-card/40 backdrop-blur-sm border border-border/60 rounded-3xl p-6 shadow-sm relative group transition-all focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary/40 focus-within:bg-card">
-                    <div className="flex items-center gap-2.5 mb-5">
-                      <Sparkles className="w-5 h-5 text-primary" />
-                      <span className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground">Share an Insight</span>
-                    </div>
-                    <textarea
-                      value={postInput}
-                      onChange={e => setPostInput(e.target.value)}
-                      placeholder="What breakthroughs are you working on today?"
-                      className="w-full bg-transparent border-none focus:ring-0 text-lg font-medium placeholder-muted-foreground/60 resize-none min-h-[120px]"
-                    />
-
-                    {/* Attached Paper */}
-                    {attachedPaperId && (
-                      <div className="mb-6 flex items-center gap-4 p-4 bg-primary/5 border border-primary/20 rounded-2xl animate-in fade-in slide-in-from-left-2">
-                        <div className="w-10 h-10 bg-background rounded-xl flex items-center justify-center border border-primary/20">
-                          <BookOpen className="w-5 h-5 text-primary" />
-                        </div>
-                        <span className="text-sm font-bold text-foreground flex-1 truncate">
-                          {localPapers.find(p => p.id === attachedPaperId)?.title || 'Selected Research'}
-                        </span>
-                        <button onClick={() => setAttachedPaperId(null)} className="p-2 hover:bg-red-500/10 text-red-500 rounded-lg transition-all">
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    )}
-
-                    <div className="flex items-center justify-between pt-5 border-t border-border/40 mt-2">
-                      <button
-                        onClick={() => setShowPaperPicker(v => !v)}
-                        className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-all px-4 py-2.5 hover:bg-primary/5 rounded-xl border border-transparent hover:border-primary/10"
-                      >
-                        <Plus className="w-3.5 h-3.5" /> Connect Paper
-                      </button>
-                      <button
-                        onClick={handlePost}
-                        disabled={!postInput.trim() || sending}
-                        className="flex items-center gap-2 px-6 py-2.5 bg-primary text-primary-foreground rounded-xl font-black uppercase tracking-widest text-[10px] hover:shadow-lg hover:shadow-primary/20 transition-all disabled:opacity-50"
-                      >
-                        {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                        {sending ? 'Publishing...' : 'Publish Insight'}
-                      </button>
-                    </div>
-
-                    {/* Paper Picker dropdown */}
-                    {showPaperPicker && (
-                      <div className="absolute top-full left-0 right-0 z-20 mt-4 bg-card border border-border rounded-3xl shadow-2xl max-h-72 overflow-y-auto animate-in zoom-in-95 slide-in-from-top-2">
-                        {localPapers.map(p => (
-                          <button
-                            key={p.id}
-                            onClick={() => { setAttachedPaperId(p.id); setShowPaperPicker(false); }}
-                            className="w-full text-left p-5 hover:bg-primary/5 border-b border-border/50 last:border-0 transition-colors group"
-                          >
-                            <span className="font-bold text-foreground group-hover:text-primary transition-colors block mb-1 line-clamp-1">{p.title}</span>
-                            <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">{p.authors[0]} · {p.year}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="bg-primary/5 border border-primary/20 rounded-3xl p-10 text-center animate-in fade-in duration-500">
-                    <Lock className="w-12 h-12 text-primary mx-auto mb-6 opacity-30" />
-                    <h4 className="text-xl font-black text-foreground mb-3">Community Locked</h4>
-                    <p className="text-muted-foreground font-medium mb-8">Join the fellowship to reveal discussions and share your research insights with this community.</p>
-                    <button 
-                      onClick={() => handleJoin(selected.id)}
-                      className="px-8 py-4 bg-primary text-primary-foreground rounded-2xl font-black uppercase tracking-widest text-xs hover:opacity-90 transition-all shadow-xl shadow-primary/20"
-                    >
-                      Join Fellowship
+            {/* Post Composer */}
+            {selected.isMember ? (
+              <div className="bg-card border border-border/60 rounded-[28px] p-5 shadow-sm">
+                <textarea
+                  value={postInput}
+                  onChange={e => setPostInput(e.target.value)}
+                  placeholder="Share something with the community..."
+                  className="w-full bg-muted/30 border border-border/50 rounded-2xl p-4 focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground resize-none min-h-[100px] text-[15px]"
+                />
+                
+                {/* Attached Paper Preview */}
+                {attachedPaperId && (
+                  <div className="mt-4 flex items-center gap-4 p-3 bg-primary/5 border border-primary/10 rounded-xl">
+                    <BookOpen className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-medium flex-1 truncate">
+                      {localPapers.find(p => p.id === attachedPaperId)?.title}
+                    </span>
+                    <button onClick={() => setAttachedPaperId(null)} className="text-muted-foreground hover:text-red-500">
+                      <X className="w-4 h-4" />
                     </button>
                   </div>
                 )}
 
-                {/* Posts Feed */}
-                <div className="space-y-6">
-                  {(selected.posts || []).length === 0 ? (
-                    <div className="text-center py-20 bg-muted/10 border border-dashed border-border/60 rounded-3xl flex flex-col items-center justify-center">
-                      <div className="w-16 h-16 bg-background rounded-full flex items-center justify-center mb-5 shadow-sm border border-border/40">
-                        <MessageSquare className="w-6 h-6 text-muted-foreground/50" />
+                <div className="flex items-center justify-between mt-4">
+                  <div className="flex items-center gap-2 relative">
+                    <button onClick={() => setShowPaperPicker(!showPaperPicker)} className="p-2.5 text-muted-foreground hover:bg-muted rounded-full transition-colors relative">
+                      <Paperclip className="w-5 h-5" />
+                    </button>
+                    
+                    {/* Paper Picker Dropdown */}
+                    {showPaperPicker && (
+                      <div className="absolute top-full left-0 mt-2 w-64 bg-card border border-border rounded-2xl shadow-xl z-20 max-h-64 overflow-y-auto">
+                        {localPapers.map(p => (
+                          <div key={p.id} onClick={() => { setAttachedPaperId(p.id); setShowPaperPicker(false); }} className="p-3 hover:bg-muted cursor-pointer border-b border-border/50 last:border-0">
+                            <p className="text-sm font-bold truncate">{p.title}</p>
+                            <p className="text-[10px] text-muted-foreground">{p.authors[0]} · {p.year}</p>
+                          </div>
+                        ))}
                       </div>
-                      <p className="text-lg font-bold text-muted-foreground">The silent halls of research await your insight...</p>
-                    </div>
-                  ) : (
-                    (selected.posts || []).map(post => (
-                      <PostCard key={post.id} post={post} onDelete={handleDeletePost} onPaperSelect={onPaperSelect} />
-                    ))
-                  )}
+                    )}
+                  </div>
+                  <button
+                    onClick={handlePost}
+                    disabled={!postInput.trim() || sending}
+                    className="px-6 py-2 bg-primary text-primary-foreground rounded-full text-sm font-bold hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                    Post
+                  </button>
                 </div>
               </div>
+            ) : (
+              <div className="bg-card border border-border/60 rounded-[28px] p-8 text-center shadow-sm">
+                <Lock className="w-10 h-10 text-muted-foreground/50 mx-auto mb-4" />
+                <h4 className="text-lg font-bold text-foreground mb-2">Join to Post</h4>
+                <p className="text-muted-foreground text-sm mb-6">You must join this community to participate in discussions.</p>
+                <button onClick={() => handleJoin(selected.id)} className="px-6 py-2.5 bg-primary text-primary-foreground rounded-full font-bold text-sm">
+                  Join Community
+                </button>
+              </div>
+            )}
 
-              {/* Members Sidebar */}
-              <div className="space-y-6">
-                <div className="bg-card/40 backdrop-blur-sm border border-border/60 rounded-3xl p-6 shadow-sm">
-                  <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-6 flex items-center justify-between">
-                    Fellowship
-                    <span className="bg-primary/10 text-primary px-2.5 py-0.5 rounded-full text-[10px]">{selected.memberCount}</span>
-                  </h3>
-                  <div className="space-y-4">
-                    {(selected.members || []).map(m => (
-                      <div key={m.id} className="flex items-center gap-4 group/member">
-                        <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center border border-border group-hover/member:bg-primary/10 group-hover/member:border-primary/20 transition-all overflow-hidden shadow-sm">
-                          {m.avatar_url ? (
-                            <img src={m.avatar_url} alt={m.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <span className="text-primary font-black text-sm">{m.avatar_initials}</span>
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-sm font-black text-foreground truncate group-hover/member:text-primary transition-colors">{m.name}</p>
-                          <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest mt-0.5">{m.role}</p>
-                        </div>
-                      </div>
-                    ))}
+            {/* Posts Feed */}
+            <div className="space-y-5 mt-8 pb-10">
+              {(selected.posts || []).length === 0 ? (
+                 <div className="text-center py-20 bg-card rounded-[28px] shadow-sm">
+                    <p className="text-muted-foreground">No posts yet. Be the first to share an idea!</p>
+                 </div>
+              ) : (
+                (selected.posts || []).map(post => (
+                  <PostCard 
+                    key={post.id} 
+                    post={post} 
+                    currentUser={currentUser} 
+                    onDelete={handleDeletePost} 
+                    onPaperSelect={onPaperSelect}
+                  />
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Right Sidebar Column */}
+          <div className="w-[320px] xl:w-[350px] shrink-0 space-y-6 hidden lg:block sticky top-8">
+            
+            {/* About Card */}
+            <div className="bg-card border border-border/60 rounded-[28px] overflow-hidden shadow-sm">
+              <div className="h-28 bg-gradient-to-r from-blue-900 to-slate-900 relative">
+                <div className="absolute inset-0 opacity-20 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
+                <div className="absolute -bottom-6 left-6">
+                  <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center border-4 border-card shadow-sm text-white text-xl">
+                    {selected.icon || '🔬'}
+                  </div>
+                </div>
+              </div>
+              <div className="px-6 pt-10 pb-6">
+                <h3 className="text-[17px] font-bold text-foreground mb-2">About {selected.name}</h3>
+                <p className="text-[13px] text-muted-foreground mb-6 line-clamp-3 leading-relaxed">{selected.description || `Collaborate with fellow researchers in ${selected.subject}.`}</p>
+                
+                <div className="space-y-3 mb-6">
+                  <div className="flex items-center gap-3 text-[13px] text-foreground font-medium hover:text-primary cursor-pointer transition-colors">
+                    <ImageIcon className="w-4 h-4 text-muted-foreground" /> Cover photo
+                  </div>
+                  <div className="flex items-center gap-3 text-[13px] text-foreground font-medium hover:text-primary cursor-pointer transition-colors">
+                    <Link2 className="w-4 h-4 text-muted-foreground" /> https://{selected.name.toLowerCase().replace(/\s+/g, '-')}.ai
                   </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-primary/5 to-blue-500/5 border border-primary/10 rounded-3xl p-6 shadow-sm relative overflow-hidden">
-                   <div className="absolute top-0 right-0 w-24 h-24 bg-primary/10 rounded-full blur-2xl -translate-y-8 translate-x-8"></div>
-                   <Sparkles className="w-8 h-8 text-primary mb-4 relative z-10" />
-                   <h4 className="text-lg font-black text-foreground mb-2 leading-tight relative z-10">Forge Ideas</h4>
-                   <p className="text-xs text-muted-foreground font-medium leading-relaxed relative z-10">Collaborate with fellow researchers in {selected.subject}.</p>
+                <div className="border-t border-border/50 pt-5">
+                  <h4 className="text-[13px] font-bold text-foreground mb-3">Key links</h4>
+                  <div className="flex items-center gap-3 text-[13px] text-foreground font-medium hover:text-primary cursor-pointer transition-colors">
+                    <FileText className="w-4 h-4 text-muted-foreground" /> Cover links
+                  </div>
                 </div>
               </div>
             </div>
+
+            {/* Members Card */}
+            <div className="bg-card border border-border/60 rounded-[28px] p-6 shadow-sm">
+              <div className="flex items-center justify-between mb-5">
+                <h3 className="text-[17px] font-bold text-foreground">Members</h3>
+                <button className="px-4 py-1.5 bg-[#1C1C1E] text-white text-[11px] font-bold rounded-full hover:opacity-90">
+                  Invite
+                </button>
+              </div>
+              <div className="space-y-4 max-h-60 overflow-y-auto pr-2">
+                {(selected.members || []).map(m => (
+                  <div key={m.id} className="flex items-center gap-3 group">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shadow-sm overflow-hidden">
+                       {m.avatar_url ? <img src={m.avatar_url} alt={m.name} className="w-full h-full object-cover" /> : m.avatar_initials}
+                    </div>
+                    <div>
+                      <p className="text-[13px] font-bold text-foreground leading-none">{m.name} {m.id === selected.created_by && <span className="text-muted-foreground font-normal text-xs">(admin)</span>}</p>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1">{m.role}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Forge Ideas */}
+            <div className="bg-card border border-border/60 rounded-[28px] p-6 shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-2xl -translate-y-10 translate-x-10"></div>
+              <Sparkles className="w-5 h-5 text-foreground mb-3" />
+              <h3 className="text-[15px] font-bold text-foreground mb-1">Forge Ideas</h3>
+              <p className="text-[13px] text-muted-foreground">Collaborate with fellow researchers in {selected.subject}.</p>
+            </div>
+
+
+
           </div>
         </div>
       </div>
@@ -487,13 +428,13 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {communities.map((c) => (
-              <div 
-                key={c.id} 
+              <div
+                key={c.id}
                 className="bg-card/50 backdrop-blur-md border border-border/50 hover:border-primary/30 rounded-3xl p-6 hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 group cursor-pointer relative overflow-hidden flex flex-col h-full"
                 onClick={() => openCommunity(c)}
               >
                 <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full -translate-y-16 translate-x-16 blur-3xl group-hover:bg-primary/20 transition-colors opacity-50"></div>
-                
+
                 <div className="flex items-start justify-between mb-5 relative z-10">
                   <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center border border-primary/20 group-hover:scale-105 transition-transform shadow-sm">
                     <span className="text-2xl">{c.icon || '🔬'}</span>
@@ -505,7 +446,7 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
 
                 <h3 className="text-lg font-black text-foreground mb-2 group-hover:text-primary transition-colors leading-tight line-clamp-1">{c.name}</h3>
                 <p className="text-muted-foreground mb-6 text-xs leading-relaxed line-clamp-2 font-medium flex-1">{c.description}</p>
-                
+
                 <div className="flex items-center justify-between mt-auto pt-4 border-t border-border/40">
                   <div className="flex items-center gap-1.5 text-[10px] font-black text-muted-foreground uppercase tracking-widest truncate max-w-[60%]">
                     <Users className="w-3.5 h-3.5 text-primary/60 shrink-0" />
@@ -513,7 +454,7 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
                   </div>
                   {c.isMember ? (
                     <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest flex items-center gap-1.5 shrink-0">
-                       Joined
+                      Joined
                     </span>
                   ) : (
                     <button
@@ -628,77 +569,103 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
   );
 }
 
-function PostCard({ post, onDelete, onPaperSelect }: { post: CommunityPost; onDelete: (postId: string) => void; onPaperSelect?: (paperId: string) => void }) {
-  const timeAgo = (dateStr: string) => {
-    const diff = Date.now() - new Date(dateStr).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 60) return `${mins}m ago`;
-    const hrs = Math.floor(mins / 60);
-    if (hrs < 24) return `${hrs}h ago`;
-    return `${Math.floor(hrs / 24)}d ago`;
-  };
+function PostCard({ post, currentUser, onDelete, onPaperSelect }: { post: CommunityPost; currentUser: UserProfile | null; onDelete: (postId: string) => void; onPaperSelect?: (paperId: string) => void }) {
+  const [showMenu, setShowMenu] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
 
   return (
-    <div className="bg-card border border-primary/10 rounded-3xl p-8 hover:shadow-xl transition-all group">
-      <div className="flex items-start gap-4 mb-6">
-        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-blue-600 flex items-center justify-center shadow-lg shadow-primary/20 overflow-hidden">
-          {post.author?.avatar_url ? (
-            <img src={post.author.avatar_url} alt={post.author.name} className="w-full h-full object-cover" />
-          ) : (
-            <span className="text-white text-base font-black">{post.author?.avatar_initials || '?'}</span>
-          )}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between gap-2">
-            <div>
-              <span className="font-black text-sm text-foreground mb-0.5 block">{post.author?.name || 'Researcher'}</span>
-              <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">{post.author?.role}</span>
-            </div>
-            <div className="flex items-center gap-4">
-              <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">{timeAgo(post.created_at)}</span>
-              <button
-                onClick={() => onDelete(post.id)}
-                className="p-2 hover:bg-red-500/10 text-muted-foreground hover:text-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
+    <div className="bg-card border border-border/60 rounded-[28px] p-5 shadow-sm">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white shadow-sm overflow-hidden">
+            {post.author?.avatar_url ? (
+              <img src={post.author.avatar_url} alt={post.author.name} className="w-full h-full object-cover" />
+            ) : (
+              <span className="font-bold">{post.author?.avatar_initials || '?'}</span>
+            )}
           </div>
+          <div>
+            <h4 className="text-[15px] font-bold text-foreground leading-none">{post.author?.name || 'Researcher'}</h4>
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-1 block">{post.author?.role || 'STUDENT'}</span>
+          </div>
+        </div>
+        <div className="relative">
+          <button 
+            onClick={() => setShowMenu(!showMenu)} 
+            className="text-muted-foreground hover:bg-muted p-2 rounded-full transition-colors"
+          >
+            <MoreHorizontal className="w-5 h-5" />
+          </button>
+          
+          {showMenu && (
+            <>
+              <div className="fixed inset-0 z-0" onClick={() => setShowMenu(false)}></div>
+              <div className="absolute right-0 top-full mt-1 z-10 flex flex-col gap-1 w-32 shadow-xl">
+                {(currentUser?.id === post.user_id || currentUser?.name === post.author?.name) && (
+                  <button 
+                    onClick={() => {
+                      onDelete(post.id);
+                      setShowMenu(false);
+                    }} 
+                    className="bg-red-500 text-white px-4 py-2.5 rounded-lg text-sm font-bold shadow-lg hover:bg-red-600 text-left transition-colors"
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </div>
 
-      <p className="text-base text-foreground font-medium leading-relaxed whitespace-pre-wrap mb-8">{post.content}</p>
+      {/* Content */}
+      <p className={`text-[15px] text-foreground whitespace-pre-wrap leading-relaxed ${post.paper ? 'mb-4' : ''}`}>{post.content}</p>
 
+      {/* Paper Attachment */}
       {post.paper && (
         <div 
           onClick={() => onPaperSelect?.(post.paper!.id)}
-          className="bg-muted/30 border border-border rounded-3xl p-6 mb-8 hover:bg-muted/50 transition-all cursor-pointer relative overflow-hidden group/paper"
+          className="border border-border/60 rounded-2xl overflow-hidden cursor-pointer hover:bg-muted/30 transition-colors flex max-sm:flex-col"
         >
-          <div className="flex items-center gap-3 mb-3">
-            <BookOpen className="w-4 h-4 text-primary" />
-            <span className="text-[10px] font-black text-primary uppercase tracking-widest">Connected Research</span>
+          <div className="w-full sm:w-32 h-32 sm:h-auto bg-gradient-to-br from-slate-800 to-slate-700 relative overflow-hidden shrink-0 flex items-center justify-center">
+             <div className="absolute inset-0 opacity-40 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
+             <BookOpen className="w-8 h-8 text-white/50 relative z-10" />
           </div>
-          <h5 className="text-base font-black text-foreground mb-1 group-hover/paper:text-primary transition-colors">{post.paper.title}</h5>
-          <p className="text-xs text-muted-foreground font-medium">
-            {post.paper.authors.slice(0, 2).join(', ')} · {post.paper.year}
-          </p>
+          <div className="p-4 flex-1 min-w-0 flex flex-col justify-center">
+            <h5 className="text-[15px] font-bold text-foreground mb-1.5 truncate">{post.paper.title}</h5>
+            <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed mb-2">
+              {post.paper.authors.join(', ')} - {post.paper.year}
+            </p>
+            <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">Research Detail · {post.paper.year}</p>
+          </div>
         </div>
       )}
 
-      <div className="flex items-center gap-8 pt-6 border-t border-border/50">
-        <button className="flex items-center gap-2.5 text-[10px] font-black text-muted-foreground hover:text-primary uppercase tracking-widest transition-colors group/stat">
-          <div className="p-2 bg-muted rounded-lg group-hover/stat:bg-primary/10 transition-all">
-            <MessageSquare className="w-4 h-4" />
-          </div>
-          Discussions
-        </button>
-        <button className="flex items-center gap-2.5 text-[10px] font-black text-muted-foreground hover:text-pink-500 uppercase tracking-widest transition-colors group/stat">
-          <div className="p-2 bg-muted rounded-lg group-hover/stat:bg-pink-500/10 transition-all">
-            <Heart className="w-4 h-4" />
-          </div>
-          {post.likes} Favorites
-        </button>
-      </div>
+      {/* Actions */}
+      {post.paper && (
+        <div className="flex items-center justify-end border-t border-border/40 pt-4 px-2 mt-4">
+          <button 
+            disabled={isSaved}
+            onClick={() => {
+              setIsSaved(true);
+              papersApi.toggleSave(post.paper!.id)
+                .catch(err => {
+                  console.error('Failed to save paper to library', err);
+                  setIsSaved(false);
+                });
+            }}
+            className={`flex items-center gap-2 text-[13px] font-medium px-4 py-2 rounded-full transition-colors ${
+              isSaved 
+                ? 'text-pink-600 bg-pink-100 cursor-default' 
+                : 'text-pink-500 bg-pink-500/5 hover:bg-pink-500/10'
+            }`}
+          >
+            <Heart className={`w-4 h-4 ${isSaved ? 'fill-pink-600' : 'fill-pink-500/20'}`} /> 
+            <span className="hidden sm:inline">{isSaved ? 'Saved' : 'Add to Library'}</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }
