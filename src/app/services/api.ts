@@ -420,7 +420,7 @@ export const aiApi = {
       body: JSON.stringify({ uploadId }),
     }),
 
-  suggestPapers: (params: { topic?: string; context?: string }) =>
+  suggestPapers: (params: { topic?: string; context?: string; count?: number }) =>
     request<{ suggestions: string; queries: string[] }>('/ai/suggest-papers', {
       method: 'POST',
       body: JSON.stringify(params),

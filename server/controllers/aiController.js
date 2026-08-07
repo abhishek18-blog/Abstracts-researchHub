@@ -85,20 +85,22 @@ export const summarizePDF = async (req, res) => {
  */
 export const suggestPapers = async (req, res) => {
   try {
-    const { topic, context } = req.body;
+    const { topic, context, count } = req.body;
     if (!topic && !context) {
       return res.status(400).json({ success: false, error: 'Topic or context is required for suggestions' });
     }
 
+    const numSuggestions = count ? parseInt(count, 10) : 5;
+
     const prompt = context
-      ? `Based on the following research context, suggest exactly 5 relevant research papers. \n\n${context}`
-      : `Suggest exactly 5 modern and highly relevant research papers for the topic: "${topic}". For each paper, provide a title, a brief explanation of why it is relevant, and potential keywords.`;
+      ? `Based on the following research context, suggest exactly ${numSuggestions} relevant research papers. \n\n${context}`
+      : `Suggest exactly ${numSuggestions} modern and highly relevant research papers for the topic: "${topic}". For each paper, provide a title, a brief explanation of why it is relevant, and potential keywords.`;
 
     const chatCompletion = await groq.chat.completions.create({
       messages: [
         {
           role: 'system',
-          content: 'You are an expert academic advisor. You must respond in valid JSON format with exactly two properties: "markdown" (containing your conversational response with the formatted list) and "queries" (a JSON array of 5 strings containing exactly the titles of the 5 papers you suggested). CRITICAL: Do NOT use markdown bolding or asterisks (**) anywhere in your output. Provide plain text only.',
+          content: `You are an expert academic advisor. You must respond in valid JSON format with exactly two properties: "markdown" (containing your conversational response with the formatted list) and "queries" (a JSON array of ${numSuggestions} strings containing exactly the titles of the ${numSuggestions} papers you suggested). CRITICAL: Do NOT use markdown bolding or asterisks (**) anywhere in your output. Provide plain text only.`,
         },
         {
           role: 'user',
