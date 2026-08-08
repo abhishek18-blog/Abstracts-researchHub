@@ -59,7 +59,7 @@ async function searchSemanticScholar(q, limit, offset) {
 
 // ─── OpenAlex fallback search (completely free, no rate limit) ───
 async function searchOpenAlex(q, limit, offset) {
-  const apiUrl = `https://api.openalex.org/works?search=${encodeURIComponent(q)}&per_page=${limit}&page=${Math.floor(offset / limit) + 1}&select=id,title,authorships,publication_year,cited_by_count,open_access,doi,primary_location,abstract_inverted_index`;
+  const apiUrl = `https://api.openalex.org/works?filter=title_and_abstract.search:${encodeURIComponent(q)}&per_page=${limit}&page=${Math.floor(offset / limit) + 1}&select=id,title,authorships,publication_year,cited_by_count,open_access,doi,primary_location,abstract_inverted_index&sort=relevance_score:desc`;
 
   const response = await fetch(apiUrl, {
     headers: {

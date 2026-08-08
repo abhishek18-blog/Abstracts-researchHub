@@ -13,7 +13,8 @@ import {
   deleteCommunity,
   addMember,
   removeMember,
-  updateCommunity  // ✅ NEW: handles saving cover photo, link, guidelines from admin
+  updateCommunity,
+  updateMemberRole
 } from '../controllers/communityController.js';
 import { authMiddleware } from '../middleware/index.js';
 
@@ -48,5 +49,6 @@ router.delete('/:id', authMiddleware, deleteCommunity);
 router.put('/:id', authMiddleware, updateCommunity);
 router.post('/:id/members', authMiddleware, addMember);
 router.delete('/:id/members/:userId', authMiddleware, removeMember);
+router.put('/:id/members/:userId/role', authMiddleware, updateMemberRole);
 
 export default router;

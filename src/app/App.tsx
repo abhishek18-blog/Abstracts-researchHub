@@ -21,6 +21,10 @@ import { setUserId } from 'firebase/analytics';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('c')) return 'community';
+    }
     return localStorage.getItem('guest') ? 'discover' : 'library';
   });
   const [isChatOpen, setIsChatOpen] = useState(true);
