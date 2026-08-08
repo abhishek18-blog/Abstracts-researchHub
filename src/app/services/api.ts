@@ -360,6 +360,7 @@ export interface CommunityPost {
   user_id: string;
   content: string;
   papers?: { id: string; title: string; authors: string[]; year: string; citations: number }[];
+  paper?: { id: string; title: string; authors: string[]; year: string; citations: number }; // For backward compatibility with old backend
   likes: number;
   author?: { name: string; avatar_initials: string; avatar_url?: string; role: string };
   created_at: string;
@@ -383,7 +384,11 @@ export const communityApi = {
   createPost: (id: string, content: string, paper_ids?: string[]) =>
     request<CommunityPost>(`/community/${id}/posts`, {
       method: 'POST',
-      body: JSON.stringify({ content, paper_ids }),
+      body: JSON.stringify({ 
+        content, 
+        paper_ids,
+        paper_id: paper_ids && paper_ids.length > 0 ? paper_ids[0] : undefined // For old backend
+      }),
     }),
   deletePost: (communityId: string, postId: string) =>
     request<void>(`/community/${communityId}/posts/${postId}`, { method: 'DELETE' }),

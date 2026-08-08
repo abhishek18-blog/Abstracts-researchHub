@@ -701,6 +701,9 @@ function PostCard({ post, currentUser, onDelete, onPaperSelect }: { post: Commun
   const [showMenu, setShowMenu] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
 
+  // Normalize papers array to handle both new (papers) and old (paper) backend schemas
+  const attachedPapers = post.papers || (post.paper ? [post.paper] : []);
+
   return (
     <div className="bg-card border border-border/60 rounded-[28px] p-5 shadow-sm">
       {/* Header */}
@@ -748,12 +751,12 @@ function PostCard({ post, currentUser, onDelete, onPaperSelect }: { post: Commun
       </div>
 
       {/* Content */}
-      <p className={`text-[15px] text-foreground whitespace-pre-wrap leading-relaxed ${post.papers && post.papers.length > 0 ? 'mb-4' : ''}`}>{post.content}</p>
+      <p className={`text-[15px] text-foreground whitespace-pre-wrap leading-relaxed ${attachedPapers.length > 0 ? 'mb-4' : ''}`}>{post.content}</p>
 
       {/* Paper Attachment */}
-      {post.papers && post.papers.length > 0 && (
+      {attachedPapers.length > 0 && (
         <div className="space-y-3">
-          {post.papers.map((paper: any) => (
+          {attachedPapers.map((paper: any) => (
             <div 
               key={paper.id}
               onClick={() => onPaperSelect?.(paper.id)}
@@ -776,13 +779,13 @@ function PostCard({ post, currentUser, onDelete, onPaperSelect }: { post: Commun
       )}
 
       {/* Actions */}
-      {post.papers && post.papers.length > 0 && (
+      {attachedPapers.length > 0 && (
         <div className="flex items-center justify-end border-t border-border/40 pt-4 px-2 mt-4">
           <button 
             disabled={isSaved}
             onClick={() => {
               setIsSaved(true);
-              Promise.all(post.papers!.map((paper: any) => papersApi.toggleSave(paper.id)))
+              Promise.all(attachedPapers.map((paper: any) => papersApi.toggleSave(paper.id)))
                 .catch(err => {
                   console.error('Failed to save paper to library', err);
                   setIsSaved(false);
