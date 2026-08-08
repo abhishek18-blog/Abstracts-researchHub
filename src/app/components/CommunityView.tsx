@@ -95,7 +95,7 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
     // Handle deep links
     const params = new URLSearchParams(window.location.search);
     const commId = params.get('c');
-    if (commId) {
+    if (commId && commId !== 'undefined') {
       setCardLoading(true);
       communityApi.getById(commId).then(res => {
         setSelected(res.data);
@@ -552,7 +552,8 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
                 <h3 className="text-[17px] font-bold text-foreground">Members</h3>
                 <button 
                   onClick={() => {
-                    const url = `${window.location.origin}?c=${selected.id}`;
+                    const id = selected.id || selected._id;
+                    const url = `${window.location.origin}?c=${id}`;
                     navigator.clipboard.writeText(url);
                     alert('Community link copied to clipboard!');
                   }}
