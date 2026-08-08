@@ -91,6 +91,28 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
   useEffect(() => {
     userApi.getProfile().then(r => setCurrentUser(r.data)).catch(() => { });
     papersApi.getAll().then(r => setLocalPapers(r.data)).catch(() => { });
+
+    // Handle deep links
+    const params = new URLSearchParams(window.location.search);
+    const commId = params.get('c');
+    if (commId) {
+      setCardLoading(true);
+      communityApi.getById(commId).then(res => {
+        setSelected(res.data);
+        setCardCoverPhoto(res.data.cover_photo || '');
+        setCardLink(res.data.link || '');
+        setGuidelinesLink(res.data.guidelines_link || '');
+        if (res.data.is_private) {
+          communityApi.getJoinRequests(res.data.id).then(r => setRequests(r.data)).catch(() => { });
+        }
+        // Clean up the URL so it doesn't stay in the address bar
+        window.history.replaceState({}, '', window.location.pathname);
+      }).catch(err => {
+        console.error("Failed to load community from deep link", err);
+      }).finally(() => {
+        setCardLoading(false);
+      });
+    }
   }, []);
 
   const openCommunity = async (community: Community) => {
@@ -134,8 +156,34 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
       await communityApi.leave(communityId);
       setCommunities(prev => prev.map(c => c.id === communityId ? { ...c, isMember: false, memberCount: Math.max(0, c.memberCount - 1) } : c));
       if (selected?.id === communityId) setSelected(prev => prev ? { ...prev, isMember: false, memberCount: Math.max(0, prev.memberCount - 1) } : prev);
-    } catch (err) { console.error(err); }
-    finally { setActionLoading(null); }
+      alert('Left community successfully.');
+      setSelected(null); // Return to list view
+    } catch (err: any) { 
+      alert(err.message || 'Failed to leave community');
+    } finally { setActionLoading(null); }
+  };
+
+  const handleRemoveMember = async (userId: string) => {
+    if (!selected) return;
+    try {
+      await communityApi.removeMember(selected.id, userId);
+      setSelected({ ...selected, members: selected.members?.filter(m => m.id !== userId) });
+    } catch (err: any) {
+      alert(err.message || 'Failed to remove member');
+    }
+  };
+
+  const handleUpdateRole = async (userId: string, role: 'admin' | 'member') => {
+    if (!selected) return;
+    try {
+      await communityApi.updateMemberRole(selected.id, userId, role);
+      setSelected({
+        ...selected,
+        members: selected.members?.map(m => m.id === userId ? { ...m, role } : m)
+      });
+    } catch (err: any) {
+      alert(err.message || 'Failed to update role');
+    }
   };
 
   const handleDeleteCommunity = async (communityId: string) => {
@@ -237,9 +285,12 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
   const handleHandleRequest = async (requestId: string, status: 'accepted' | 'rejected') => {
     try {
       await communityApi.handleJoinRequest(requestId, status);
-      setRequests(prev => prev.filter(r => r.id !== requestId));
+      setRequests(prev => prev.filter(r => r.id !== requestId && r._id !== requestId));
       if (status === 'accepted' && selected) {
-        setSelected({ ...selected, memberCount: selected.memberCount + 1 });
+        // Re-fetch the entire community to instantly pull down the fresh members list
+        // and add the newly approved user to the UI without requiring a page refresh
+        const res = await communityApi.getById(selected.id);
+        setSelected(res.data);
       }
     } catch (err) { console.error(err); }
   };
@@ -254,8 +305,8 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
     );
 
     return (
-      <div className="flex-1 bg-muted/10 overflow-y-auto h-full flex justify-center p-6 lg:p-8 animate-in fade-in duration-500">
-        <div className="w-full max-w-7xl flex gap-6 md:gap-8 items-start">
+      <div className="flex-1 bg-muted/10 overflow-y-auto h-full p-6 lg:p-8 animate-in fade-in duration-500">
+        <div className="w-full max-w-7xl mx-auto flex gap-6 md:gap-8 items-start">
           
           {/* Main Feed Column */}
           <div className="flex-1 max-w-3xl space-y-6">
@@ -269,97 +320,116 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
               </button>
             </div>
 
-            {/* Post Composer */}
-            {selected.isMember ? (
-              <div className="bg-card border border-border/60 rounded-[28px] p-5 shadow-sm">
-                <textarea
-                  value={postInput}
-                  onChange={e => setPostInput(e.target.value)}
-                  placeholder="Share something with the community..."
-                  className="w-full bg-muted/30 border border-border/50 rounded-2xl p-4 focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground resize-none min-h-[100px] text-[15px]"
-                />
-                
-                {/* Attached Paper Preview */}
-                {attachedPaperIds.length > 0 && (
-                  <div className="mt-4 flex flex-col gap-2">
-                    {attachedPaperIds.map(id => (
-                      <div key={id} className="flex items-center gap-4 p-3 bg-primary/5 border border-primary/10 rounded-xl">
-                        <BookOpen className="w-4 h-4 text-primary" />
-                        <span className="text-sm font-medium flex-1 truncate">
-                          {localPapers.find(p => p.id === id)?.title}
-                        </span>
-                        <button onClick={() => setAttachedPaperIds(prev => prev.filter(pid => pid !== id))} className="text-muted-foreground hover:text-red-500">
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between mt-4">
-                  <div className="flex items-center gap-2 relative">
-                    <button onClick={() => setShowPaperPicker(!showPaperPicker)} className="p-2.5 text-muted-foreground hover:bg-muted rounded-full transition-colors relative">
-                      <Paperclip className="w-5 h-5" />
-                    </button>
+            {selected.is_private && !selected.isMember ? (
+              <div className="bg-card border border-border/60 rounded-[28px] p-12 text-center shadow-sm flex flex-col items-center justify-center min-h-[400px] animate-in fade-in zoom-in-95 duration-500">
+                <Lock className="w-16 h-16 text-muted-foreground/30 mx-auto mb-6" />
+                <h3 className="text-2xl font-bold text-foreground mb-3">Private Community</h3>
+                <p className="text-muted-foreground text-[15px] mb-8 max-w-sm mx-auto">
+                  This community is private. You must request access from an admin to view discussions and participate.
+                </p>
+                <button 
+                  onClick={() => handleJoin(selected.id)} 
+                  disabled={actionLoading === selected.id}
+                  className="px-8 py-3 bg-primary text-primary-foreground rounded-full font-bold text-[15px] hover:opacity-90 disabled:opacity-50 transition-opacity"
+                >
+                  {actionLoading === selected.id ? 'Requesting...' : 'Request to Join'}
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* Post Composer */}
+                {selected.isMember ? (
+                  <div className="bg-card border border-border/60 rounded-[28px] p-5 shadow-sm">
+                    <textarea
+                      value={postInput}
+                      onChange={e => setPostInput(e.target.value)}
+                      placeholder="Share something with the community..."
+                      className="w-full bg-muted/30 border border-border/50 rounded-2xl p-4 focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground resize-none min-h-[100px] text-[15px]"
+                    />
                     
-                    {/* Paper Picker Dropdown */}
-                    {showPaperPicker && (
-                      <div className="absolute top-full left-0 mt-2 w-64 bg-card border border-border rounded-2xl shadow-xl z-20 max-h-64 overflow-y-auto">
-                        {localPapers.map(p => (
-                          <div key={p.id} onClick={() => { setAttachedPaperIds(prev => prev.includes(p.id) ? prev.filter(id => id !== p.id) : [...prev, p.id]); }} className="p-3 hover:bg-muted cursor-pointer border-b border-border/50 last:border-0 flex items-center justify-between">
-                            <div className="min-w-0 pr-2">
-                              <p className="text-sm font-bold truncate">{p.title}</p>
-                              <p className="text-[10px] text-muted-foreground">{p.authors[0]} · {p.year}</p>
-                            </div>
-                            {attachedPaperIds.includes(p.id) && <div className="w-2 h-2 rounded-full bg-primary shrink-0"></div>}
+                    {/* Attached Paper Preview */}
+                    {attachedPaperIds.length > 0 && (
+                      <div className="mt-4 flex flex-col gap-2">
+                        {attachedPaperIds.map(id => (
+                          <div key={id} className="flex items-center gap-4 p-3 bg-primary/5 border border-primary/10 rounded-xl">
+                            <BookOpen className="w-4 h-4 text-primary" />
+                            <span className="text-sm font-medium flex-1 truncate">
+                              {localPapers.find(p => p.id === id)?.title}
+                            </span>
+                            <button onClick={() => setAttachedPaperIds(prev => prev.filter(pid => pid !== id))} className="text-muted-foreground hover:text-red-500">
+                              <X className="w-4 h-4" />
+                            </button>
                           </div>
                         ))}
                       </div>
                     )}
-                  </div>
-                  <button
-                    onClick={handlePost}
-                    disabled={!postInput.trim() || sending}
-                    className="px-6 py-2 bg-primary text-primary-foreground rounded-full text-sm font-bold hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
-                  >
-                    {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                    Post
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="bg-card border border-border/60 rounded-[28px] p-8 text-center shadow-sm">
-                <Lock className="w-10 h-10 text-muted-foreground/50 mx-auto mb-4" />
-                <h4 className="text-lg font-bold text-foreground mb-2">Join to Post</h4>
-                <p className="text-muted-foreground text-sm mb-6">You must join this community to participate in discussions.</p>
-                <button onClick={() => handleJoin(selected.id)} className="px-6 py-2.5 bg-primary text-primary-foreground rounded-full font-bold text-sm">
-                  Join Community
-                </button>
-              </div>
-            )}
 
-            {/* Posts Feed */}
-            <div className="space-y-5 mt-8 pb-10">
-              {cardLoading ? (
-                 <div className="flex justify-center py-20 bg-card rounded-[28px] shadow-sm border border-border/60">
-                   <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                 </div>
-              ) : (selected.posts || []).length === 0 ? (
-                 <div className="text-center py-20 bg-card rounded-[28px] shadow-sm">
-                    <p className="text-muted-foreground">No posts yet. Be the first to share an idea!</p>
-                 </div>
-              ) : (
-                (selected.posts || []).map(post => (
-                  <PostCard 
-                    key={post.id} 
-                    post={post} 
-                    currentUser={currentUser} 
-                    onDelete={handleDeletePost} 
-                    onPaperSelect={onPaperSelect}
-                  />
-                ))
-              )}
-            </div>
+                    <div className="flex items-center justify-between mt-4">
+                      <div className="flex items-center gap-2 relative">
+                        <button onClick={() => setShowPaperPicker(!showPaperPicker)} className="p-2.5 text-muted-foreground hover:bg-muted rounded-full transition-colors relative">
+                          <Paperclip className="w-5 h-5" />
+                        </button>
+                        
+                        {/* Paper Picker Dropdown */}
+                        {showPaperPicker && (
+                          <div className="absolute top-full left-0 mt-2 w-64 bg-card border border-border rounded-2xl shadow-xl z-20 max-h-64 overflow-y-auto">
+                            {localPapers.map(p => (
+                              <div key={p.id} onClick={() => { setAttachedPaperIds(prev => prev.includes(p.id) ? prev.filter(id => id !== p.id) : [...prev, p.id]); }} className="p-3 hover:bg-muted cursor-pointer border-b border-border/50 last:border-0 flex items-center justify-between">
+                                <div className="min-w-0 pr-2">
+                                  <p className="text-sm font-bold truncate">{p.title}</p>
+                                  <p className="text-[10px] text-muted-foreground">{p.authors[0]} · {p.year}</p>
+                                </div>
+                                {attachedPaperIds.includes(p.id) && <div className="w-2 h-2 rounded-full bg-primary shrink-0"></div>}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        onClick={handlePost}
+                        disabled={!postInput.trim() || sending}
+                        className="px-6 py-2 bg-primary text-primary-foreground rounded-full text-sm font-bold hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
+                      >
+                        {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                        Post
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="bg-card border border-border/60 rounded-[28px] p-8 text-center shadow-sm">
+                    <Lock className="w-10 h-10 text-muted-foreground/50 mx-auto mb-4" />
+                    <h4 className="text-lg font-bold text-foreground mb-2">Join to Post</h4>
+                    <p className="text-muted-foreground text-sm mb-6">You must join this community to participate in discussions.</p>
+                    <button onClick={() => handleJoin(selected.id)} className="px-6 py-2.5 bg-primary text-primary-foreground rounded-full font-bold text-sm">
+                      Join Community
+                    </button>
+                  </div>
+                )}
+
+                {/* Posts Feed */}
+                <div className="space-y-5 mt-8 pb-10">
+                  {cardLoading ? (
+                     <div className="flex justify-center py-20 bg-card rounded-[28px] shadow-sm border border-border/60">
+                       <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                     </div>
+                  ) : (selected.posts || []).length === 0 ? (
+                     <div className="text-center py-20 bg-card rounded-[28px] shadow-sm">
+                        <p className="text-muted-foreground">No posts yet. Be the first to share an idea!</p>
+                     </div>
+                  ) : (
+                    (selected.posts || []).map(post => (
+                      <PostCard 
+                        key={post.id} 
+                        post={post} 
+                        currentUser={currentUser} 
+                        onDelete={handleDeletePost} 
+                        onPaperSelect={onPaperSelect}
+                      />
+                    ))
+                  )}
+                </div>
+              </>
+            )}
           </div>
 
           {/* Right Sidebar Column */}
@@ -454,6 +524,25 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
                     </div>
                   )}
                 </div>
+
+                <div className="border-t border-border/50 pt-5 mt-5 flex flex-col gap-2">
+                  {selected.isMember && (
+                    <button 
+                      onClick={() => handleLeave(selected.id)}
+                      className="text-[13px] font-medium text-red-500 hover:bg-red-500/10 px-3 py-2 rounded-lg text-left transition-colors flex items-center gap-3"
+                    >
+                      <LogOut className="w-4 h-4" /> Leave Community
+                    </button>
+                  )}
+                  {isAdmin && (
+                    <button 
+                      onClick={() => handleDeleteCommunity(selected.id)}
+                      className="text-[13px] font-medium text-red-500 hover:bg-red-500/10 px-3 py-2 rounded-lg text-left transition-colors flex items-center gap-3"
+                    >
+                      <Trash2 className="w-4 h-4" /> Delete Community
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -461,8 +550,15 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
             <div className="bg-card border border-border/60 rounded-[28px] p-6 shadow-sm">
               <div className="flex items-center justify-between mb-5">
                 <h3 className="text-[17px] font-bold text-foreground">Members</h3>
-                <button className="px-4 py-1.5 bg-[#1C1C1E] text-white text-[11px] font-bold rounded-full hover:opacity-90">
-                  Invite
+                <button 
+                  onClick={() => {
+                    const url = `${window.location.origin}?c=${selected.id}`;
+                    navigator.clipboard.writeText(url);
+                    alert('Community link copied to clipboard!');
+                  }}
+                  className="px-4 py-1.5 bg-[#1C1C1E] text-white text-[11px] font-bold rounded-full hover:opacity-90 flex items-center gap-1.5 transition-all"
+                >
+                  <Share2 className="w-3.5 h-3.5" /> Share Link
                 </button>
               </div>
               <div className="space-y-4 max-h-60 overflow-y-auto pr-2">
@@ -482,19 +578,80 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
                         <p className="text-[10px] font-bold text-muted-foreground uppercase mt-1 truncate">{m.role}</p>
                       </div>
                     </div>
-                    {isAdmin && m.id !== selected.created_by && (
-                      <button 
-                        onClick={() => setSelected({ ...selected, members: selected.members?.filter(member => member.id !== m.id) })}
-                        className="opacity-0 group-hover:opacity-100 p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-md transition-all shrink-0"
-                        title="Remove member"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                    {isAdmin && m.id !== selected.created_by && m.id !== currentUserId && (
+                      <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-all shrink-0">
+                        {m.role !== 'admin' ? (
+                          <button 
+                            onClick={() => handleUpdateRole(m.id, 'admin')}
+                            className="p-1.5 text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10 rounded-md text-[9px] font-bold uppercase tracking-wider"
+                            title="Promote to admin"
+                          >
+                            Promote
+                          </button>
+                        ) : (
+                          <button 
+                            onClick={() => handleUpdateRole(m.id, 'member')}
+                            className="p-1.5 text-muted-foreground hover:text-orange-500 hover:bg-orange-500/10 rounded-md text-[9px] font-bold uppercase tracking-wider"
+                            title="Demote to member"
+                          >
+                            Demote
+                          </button>
+                        )}
+                        <button 
+                          onClick={() => handleRemoveMember(m.id)}
+                          className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-md transition-all"
+                          title="Remove member"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     )}
                   </div>
                 ))}
               </div>
             </div>
+
+            {/* Join Requests Card (Admins Only) */}
+            {isAdmin && requests.length > 0 && (
+              <div className="bg-card border border-border/60 rounded-[28px] p-6 shadow-sm border-primary/20 relative overflow-hidden">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full blur-2xl -translate-y-10 translate-x-10 pointer-events-none"></div>
+                <div className="flex items-center justify-between mb-5 relative z-10">
+                  <h3 className="text-[17px] font-bold text-foreground">Join Requests</h3>
+                  <Badge variant="secondary" className="bg-primary text-primary-foreground border-none font-bold text-xs">{requests.length}</Badge>
+                </div>
+                <div className="space-y-4 max-h-60 overflow-y-auto pr-2 relative z-10">
+                  {requests.map(req => (
+                    <div key={req.id || req._id} className="flex flex-col gap-3 p-3 bg-muted/30 rounded-xl border border-border/50">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-600 to-slate-800 flex items-center justify-center text-white text-xs font-bold shadow-sm">
+                          {req.user_id?.avatar_initials || '?'}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[13px] font-bold text-foreground leading-none truncate">
+                            {req.user_id?.name || 'Unknown User'}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground mt-1 truncate">Wants to join</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={() => handleHandleRequest(req.id || req._id, 'accepted')}
+                          className="flex-1 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-colors"
+                        >
+                          Approve
+                        </button>
+                        <button 
+                          onClick={() => handleHandleRequest(req.id || req._id, 'rejected')}
+                          className="flex-1 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-600 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-colors"
+                        >
+                          Deny
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Forge Ideas */}
             <div className="bg-card border border-border/60 rounded-[28px] p-6 shadow-sm relative overflow-hidden">

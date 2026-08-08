@@ -69,6 +69,24 @@ export const getCommunityById = async (req, res) => {
     const membersCount = membersRaw.length;
     const isMember = !!isMemberDoc; // converts to simple true/false
 
+    // [SECURITY]: Content Hiding for Private Communities
+    // If the community is private and the user is not a member, we intentionally 
+    // hide all posts and member data from the API response payload.
+    if (community.is_private && !isMember) {
+      return res.json({
+        success: true,
+        data: {
+          ...community,
+          id: community._id,
+          memberCount: membersCount,
+          postCount: postsRaw.length,
+          isMember,
+          members: [], // Hidden
+          posts: [],   // Hidden
+        },
+      });
+    }
+
     const memberDetails = membersRaw.map(m => {
       const u = m.user_id;
       return u ? { id: u._id, name: u.name, avatar_initials: u.avatar_initials, avatar_url: u.avatar_url, role: u.role, joined_at: m.joined_at } : null;
@@ -190,6 +208,27 @@ export const joinCommunity = async (req, res) => {
         user_id: req.userId
       });
       await request.save();
+
+      // [FEATURE]: Email Notification on Join Request
+      // Fire-and-forget email notification to admins so they don't have to constantly check the UI.
+      try {
+        const admins = await CommunityMember.find({ community_id: req.params.id, role: 'admin' }).populate('user_id', 'email');
+        const creator = await User.findById(community.created_by).select('email');
+        const adminEmails = [creator?.email, ...admins.map(m => m.user_id?.email)].filter(Boolean);
+        const uniqueEmails = [...new Set(adminEmails)];
+        const reqUser = await User.findById(req.userId).select('name');
+
+        if (uniqueEmails.length > 0) {
+          sendEmail({
+            to: uniqueEmails.join(','),
+            subject: 'New Join Request: ' + community.name,
+            text: `${reqUser?.name || 'A user'} has requested to join your private community "${community.name}".\n\nLog in to ResearchHub to approve or deny this request.`
+          });
+        }
+      } catch (err) {
+        console.error('Failed to send join request emails:', err);
+      }
+
       return res.json({ success: true, message: 'Join request sent', status: 'pending' });
     }
 
@@ -233,7 +272,7 @@ export const handleJoinRequest = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Invalid status' });
     }
 
-    const request = await JoinRequest.findById(req.params.requestId);
+    const request = await JoinRequest.findById(req.params.requestId).populate('user_id');
     if (!request) return res.status(404).json({ success: false, error: 'Request not found' });
 
     const isAdmin = await CommunityMember.findOne({ community_id: request.community_id, user_id: req.userId, role: 'admin' });
@@ -245,10 +284,26 @@ export const handleJoinRequest = async (req, res) => {
     if (status === 'accepted') {
       const newMember = new CommunityMember({
         community_id: request.community_id,
-        user_id: request.user_id,
+        user_id: request.user_id._id,
         role: 'member'
       });
       await newMember.save();
+    }
+
+    // [FEATURE]: Email Notification on Request Approval/Denial
+    // Send an email to the user letting them know the status of their request.
+    try {
+      const community = await Community.findById(request.community_id);
+      const targetUser = request.user_id;
+      if (targetUser && targetUser.email && community) {
+        sendEmail({
+          to: targetUser.email,
+          subject: `Community Request ${status === 'accepted' ? 'Approved' : 'Denied'}`,
+          text: `Hi ${targetUser.name},\n\nYour request to join the private community "${community.name}" has been ${status === 'accepted' ? 'approved' : 'denied'}.\n\nLog in to ResearchHub to view the community.`
+        });
+      }
+    } catch (err) {
+      console.error('Failed to send status email:', err);
     }
 
     res.json({ success: true, message: `Request ${status}` });
@@ -260,10 +315,25 @@ export const handleJoinRequest = async (req, res) => {
 
 export const leaveCommunity = async (req, res) => {
   try {
-    const result = await CommunityMember.deleteOne({ community_id: req.params.id, user_id: req.userId });
-    if (result.deletedCount === 0) {
-      return res.status(404).json({ success: false, error: 'Not a member of this community' });
+    const community = await Community.findById(req.params.id);
+    if (!community) return res.status(404).json({ success: false, error: 'Community not found' });
+
+    const memberRecord = await CommunityMember.findOne({ community_id: req.params.id, user_id: req.userId });
+    if (!memberRecord) return res.status(404).json({ success: false, error: 'Not a member of this community' });
+
+    const isCreator = String(community.created_by) === String(req.userId);
+    const isAdmin = isCreator || memberRecord.role === 'admin';
+
+    if (isAdmin) {
+      const allMembers = await CommunityMember.find({ community_id: req.params.id });
+      const otherAdmins = allMembers.filter(m => String(m.user_id) !== String(req.userId) && (m.role === 'admin' || String(m.user_id) === String(community.created_by)));
+      
+      if (otherAdmins.length === 0 && allMembers.length > 1) {
+        return res.status(400).json({ success: false, error: 'You are the last admin. Please promote another member to admin before leaving.' });
+      }
     }
+
+    await CommunityMember.deleteOne({ _id: memberRecord._id });
 
     res.json({ success: true, message: 'Left community' });
   } catch (error) {
@@ -449,6 +519,30 @@ export const removeMember = async (req, res) => {
   } catch (error) {
     console.error('Error removing member:', error);
     res.status(500).json({ success: false, error: 'Failed to remove member' });
+  }
+};
+
+export const updateMemberRole = async (req, res) => {
+  try {
+    const { role } = req.body;
+    if (!['admin', 'member'].includes(role)) return res.status(400).json({ success: false, error: 'Invalid role' });
+    
+    const community = await Community.findById(req.params.id);
+    if (!community) return res.status(404).json({ success: false, error: 'Community not found' });
+    
+    const isAdmin = String(community.created_by) === String(req.userId) || !!(await CommunityMember.findOne({ community_id: req.params.id, user_id: req.userId, role: 'admin' }));
+    if (!isAdmin) return res.status(403).json({ success: false, error: 'Only admins can update roles' });
+    
+    const memberToUpdate = await CommunityMember.findOne({ community_id: req.params.id, user_id: req.params.userId });
+    if (!memberToUpdate) return res.status(404).json({ success: false, error: 'Member not found' });
+    
+    memberToUpdate.role = role;
+    await memberToUpdate.save();
+    
+    res.json({ success: true, message: 'Member role updated' });
+  } catch (error) {
+    console.error('Error updating member role:', error);
+    res.status(500).json({ success: false, error: 'Failed to update member role' });
   }
 };
 

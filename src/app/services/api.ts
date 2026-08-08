@@ -406,6 +406,13 @@ export const communityApi = {
       method: 'PUT',
       body: JSON.stringify({ status }),
     }),
+  updateMemberRole: (communityId: string, userId: string, role: 'admin' | 'member') =>
+    request<void>(`/community/${communityId}/members/${userId}/role`, {
+      method: 'PUT',
+      body: JSON.stringify({ role }),
+    }),
+  removeMember: (communityId: string, userId: string) =>
+    request<void>(`/community/${communityId}/members/${userId}`, { method: 'DELETE' }),
 };
 
 // ─── External Paper Search ────────────────────────────────────────────────────
