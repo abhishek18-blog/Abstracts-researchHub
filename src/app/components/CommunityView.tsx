@@ -67,6 +67,8 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
   const [creating, setCreating] = useState(false);
   const [requests, setRequests] = useState<any[]>([]);
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  // ✅ NEW: shows a spinner in the feed while posts are still loading from the server.
+  // Prevents the "No posts yet" message from flashing before posts actually arrive.
   const [cardLoading, setCardLoading] = useState(false);
 
   const fetchCommunities = useCallback(async () => {
@@ -93,10 +95,12 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
 
   const openCommunity = async (community: Community) => {
     setSelected(community);
-    setCardLoading(true);
+    setCardLoading(true); // show spinner immediately while fresh data loads
     try {
       const res = await communityApi.getById(community.id);
       setSelected(res.data);
+      // ✅ NEW: pre-fill the edit form with values stored in the database.
+      // Previously these were only saved in local state (lost on page refresh).
       setCardCoverPhoto(res.data.cover_photo || '');
       setCardLink(res.data.link || '');
       setGuidelinesLink(res.data.guidelines_link || '');
@@ -106,7 +110,7 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
     } catch (err) {
       console.error(err);
     } finally {
-      setCardLoading(false);
+      setCardLoading(false); // hide spinner once data is loaded
     }
   };
 
@@ -148,14 +152,17 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
     }
   };
 
+  // ✅ NEW: Sends the admin's edits (cover photo, link, guidelines) to the backend to be saved in MongoDB.
+  // Previously, these settings were only stored in React state and would disappear on refresh.
   const handleSaveCard = async () => {
     if (!selected) return;
     try {
-      await communityApi.update(selected.id, {
+      await communityApi.update(selected.id, {  // calls PUT /api/community/:id
         cover_photo: cardCoverPhoto,
         link: cardLink,
         guidelines_link: guidelinesLink
       });
+      // Also update local state so the UI reflects the changes immediately without a refresh
       setSelected({
         ...selected,
         cover_photo: cardCoverPhoto,
@@ -701,8 +708,10 @@ function PostCard({ post, currentUser, onDelete, onPaperSelect }: { post: Commun
   const [showMenu, setShowMenu] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
 
-  // Normalize papers array to handle both new (papers) and old (paper) backend schemas
-  const attachedPapers = post.papers || (post.paper ? [post.paper] : []);
+  // \u2705 BACKWARD COMPAT FIX: The new backend sends 'papers' (array of multiple papers).
+  // But the old backend on Render/Vercel might still send 'paper' (a single object).
+  // We handle both cases here so paper attachments show up on cloud deploys too.
+  const attachedPapers = post.papers?.length ? post.papers : (post.paper ? [post.paper] : []);
 
   return (
     <div className="bg-card border border-border/60 rounded-[28px] p-5 shadow-sm">

@@ -86,18 +86,41 @@ async function getAIResponse(messages, userMessage) {
 export const getConversations = async (req, res) => {
   try {
     const rawConversations = await Conversation.find({ user_id: req.userId }).sort({ updated_at: -1 });
-    const result = [];
-    
-    for (const conv of rawConversations) {
-      const messages = await Message.find({ conversation_id: conv._id }).sort({ created_at: 1 });
-      const lastMessage = messages.length > 0 ? messages[messages.length - 1].content : null;
-      
-      result.push({
-        ...conv.toJSON(),
-        message_count: messages.length,
-        last_message: lastMessage
-      });
+
+    // ─────────────────────────────────────────────────────────
+    // BEFORE (slow - N+1 problem):
+    //   for (const conv of rawConversations) {
+    //     const messages = await Message.find({ conversation_id: conv._id }); // 1 DB trip PER conversation
+    //   }
+    //   If you have 10 conversations → 10 separate DB trips, one after another.
+    //   The sidebar took longer as you chatted more.
+    //
+    // AFTER (fast - single bulk query):
+    //   We get ALL messages for ALL conversations in ONE single DB trip.
+    //   Then we group them in memory (which is instant, no waiting).
+    //   10 conversations or 100 conversations → still just 1 DB trip.
+    // ─────────────────────────────────────────────────────────
+    const convIds = rawConversations.map(c => c._id);
+    const allMessages = await Message.find({ conversation_id: { $in: convIds } }).sort({ created_at: 1 }).lean();
+
+    // Group messages by conversation ID using a Map for instant lookup
+    const messagesByConv = new Map();
+    for (const msg of allMessages) {
+      const key = String(msg.conversation_id);
+      if (!messagesByConv.has(key)) messagesByConv.set(key, []);
+      messagesByConv.get(key).push(msg);
     }
+
+    // Now build the result — no DB queries inside this loop, just reading from memory
+    const result = rawConversations.map(conv => {
+      const msgs = messagesByConv.get(String(conv._id)) || [];
+      const lastMessage = msgs.length > 0 ? msgs[msgs.length - 1].content : null;
+      return {
+        ...conv.toJSON(),
+        message_count: msgs.length,
+        last_message: lastMessage
+      };
+    });
 
     res.json({ success: true, data: result });
   } catch (error) {
@@ -138,6 +161,10 @@ export const createConversation = async (req, res) => {
       role: 'assistant',
       content: "Hi! I'm your AI research assistant. I'm now powered by openai/gpt-oss-120b. I can help you understand papers, explain formulas, summarize content, and answer questions about your research. What would you like to know?",
     });
+
+    // \u2705 BUG FIX: Previously this line was missing — the welcome message was created in memory
+    // but NEVER saved to MongoDB, so it disappeared every time the user refreshed the page.
+    await welcomeMsg.save();
 
     res.status(201).json({ success: true, data: { conversation: conversation.toJSON(), messages: [welcomeMsg.toJSON()] } });
   } catch (error) {

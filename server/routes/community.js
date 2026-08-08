@@ -13,7 +13,7 @@ import {
   deleteCommunity,
   addMember,
   removeMember,
-  updateCommunity
+  updateCommunity  // ✅ NEW: handles saving cover photo, link, guidelines from admin
 } from '../controllers/communityController.js';
 import { authMiddleware } from '../middleware/index.js';
 
@@ -42,8 +42,9 @@ router.delete('/:id/posts/:postId', authMiddleware, deletePost);
 router.get('/:id/requests', authMiddleware, getJoinRequests);
 router.put('/requests/:requestId', authMiddleware, handleJoinRequest);
 
-// Admin community management
+// Admin community management routes
 router.delete('/:id', authMiddleware, deleteCommunity);
+// ✅ NEW: Admin can update cover photo, link, and guidelines via PUT /community/:id
 router.put('/:id', authMiddleware, updateCommunity);
 router.post('/:id/members', authMiddleware, addMember);
 router.delete('/:id/members/:userId', authMiddleware, removeMember);

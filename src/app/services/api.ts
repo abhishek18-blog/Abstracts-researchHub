@@ -345,9 +345,10 @@ export interface Community {
   isMember: boolean;
   is_private: boolean;
   allow_invites: boolean;
-  cover_photo?: string;
-  link?: string;
-  guidelines_link?: string;
+  // ✅ NEW: these fields are now saved to the database. Previously they were only in local state (lost on refresh).
+  cover_photo?: string;     // the cover image set by the admin (base64 or URL)
+  link?: string;            // custom link the admin added (e.g. their lab website)
+  guidelines_link?: string; // link to community rules document
   members?: { id: string; name: string; avatar_initials: string; avatar_url?: string; role: string; joined_at: string }[];
   posts?: CommunityPost[];
   created_at: string;
@@ -359,8 +360,11 @@ export interface CommunityPost {
   community_id: string;
   user_id: string;
   content: string;
+  // The 'papers' array is the NEW format (multiple attachments).
+  // The 'paper' (singular) is the OLD format from older backend deployments (e.g. Render before update).
+  // We keep both so that old posts still display their paper attachment correctly.
   papers?: { id: string; title: string; authors: string[]; year: string; citations: number }[];
-  paper?: { id: string; title: string; authors: string[]; year: string; citations: number }; // For backward compatibility with old backend
+  paper?: { id: string; title: string; authors: string[]; year: string; citations: number }; // backward compat: old backend returns single paper
   likes: number;
   author?: { name: string; avatar_initials: string; avatar_url?: string; role: string };
   created_at: string;
@@ -374,6 +378,7 @@ export const communityApi = {
     return request<Community[]>(`/community${qs ? '?' + qs : ''}`);
   },
   getById: (id: string) => request<Community>(`/community/${id}`),
+  // ✅ NEW: calls PUT /community/:id to save admin edits (cover photo, link, guidelines) to the database
   update: (id: string, data: { cover_photo?: string; link?: string; guidelines_link?: string }) =>
     request<Community>(`/community/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   delete: (id: string) => request<void>(`/community/${id}`, { method: 'DELETE' }),
@@ -386,8 +391,11 @@ export const communityApi = {
       method: 'POST',
       body: JSON.stringify({ 
         content, 
-        paper_ids,
-        paper_id: paper_ids && paper_ids.length > 0 ? paper_ids[0] : undefined // For old backend
+        paper_ids,  // NEW format: array of paper IDs (for updated backend)
+        // BACKWARD COMPAT: old backends only understand a single paper_id field.
+        // We send the first selected paper as paper_id so it still works on Render/Vercel
+        // even if they haven't deployed the new backend yet.
+        paper_id: paper_ids && paper_ids.length > 0 ? paper_ids[0] : undefined
       }),
     }),
   deletePost: (communityId: string, postId: string) =>

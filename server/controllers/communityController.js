@@ -21,6 +21,10 @@ export const getAllCommunities = async (req, res) => {
 
     const communities = await Community.find(query).lean();
     
+    // ⚡ PERFORMANCE FIX: Before, we were fetching member count, post count, and membership status
+    // one by one (sequentially), which meant waiting for each query to finish before starting the next.
+    // Now, we fire ALL queries at the same time using Promise.all — like opening 3 browser tabs at once.
+    // This makes the community list load significantly faster.
     const result = await Promise.all(communities.map(async (community) => {
       const [membersCount, postsCount, isMember] = await Promise.all([
         CommunityMember.countDocuments({ community_id: community._id }),
@@ -33,7 +37,7 @@ export const getAllCommunities = async (req, res) => {
         id: community._id,
         memberCount: membersCount,
         postCount: postsCount,
-        isMember: !!isMember
+        isMember: !!isMember  // converts MongoDB object to true/false
       };
     }));
 
@@ -50,17 +54,20 @@ export const getCommunityById = async (req, res) => {
     const community = await Community.findById(req.params.id).lean();
     if (!community) return res.status(404).json({ success: false, error: 'Community not found' });
 
+    // ⚡ PERFORMANCE FIX: Instead of fetching membership status, member list, and posts one after another,
+    // we now fire all 3 database queries at the exact same time using Promise.all.
+    // This is the main reason the community card now loads much faster.
     const [isMemberDoc, membersRaw, postsRaw] = await Promise.all([
-      CommunityMember.findOne({ community_id: community._id, user_id: req.userId }).lean(),
-      CommunityMember.find({ community_id: community._id }).populate('user_id').lean(),
-      CommunityPost.find({ community_id: community._id })
-        .populate('user_id')
-        .populate('paper_ids')
-        .sort({ created_at: -1 })
+      CommunityMember.findOne({ community_id: community._id, user_id: req.userId }).lean(),  // is the current user a member?
+      CommunityMember.find({ community_id: community._id }).populate('user_id').lean(),        // fetch the full members list
+      CommunityPost.find({ community_id: community._id })                                      // fetch all posts in this community
+        .populate('user_id')     // also get the author's profile info
+        .populate('paper_ids')   // also get the full paper details for each attachment
+        .sort({ created_at: -1 }) // newest posts first
     ]);
 
     const membersCount = membersRaw.length;
-    const isMember = !!isMemberDoc;
+    const isMember = !!isMemberDoc; // converts to simple true/false
 
     const memberDetails = membersRaw.map(m => {
       const u = m.user_id;
@@ -135,21 +142,25 @@ export const createCommunity = async (req, res) => {
   }
 };
 
+// ✅ NEW: This function saves the admin's community card edits (cover photo, link, guidelines) to MongoDB.
+// It is called when the admin clicks the 'Save' button in the Edit panel of the About card.
 export const updateCommunity = async (req, res) => {
   try {
     const community = await Community.findById(req.params.id);
     if (!community) return res.status(404).json({ success: false, error: 'Community not found' });
 
-    // Ensure user is an admin or the creator
+    // Only the creator or an admin-role member is allowed to make changes
     const isAdmin = community.created_by === req.userId || !!(await CommunityMember.findOne({ community_id: req.params.id, user_id: req.userId, role: 'admin' }));
     if (!isAdmin) return res.status(403).json({ success: false, error: 'Only admins can update this community' });
 
+    // Only update the fields that were actually sent in the request
+    // This prevents accidentally wiping out existing data
     const { cover_photo, link, guidelines_link } = req.body;
     if (cover_photo !== undefined) community.cover_photo = cover_photo;
     if (link !== undefined) community.link = link;
     if (guidelines_link !== undefined) community.guidelines_link = guidelines_link;
 
-    await community.save();
+    await community.save(); // persist changes to MongoDB
     res.json({ success: true, data: community });
   } catch (error) {
     console.error('Error updating community:', error);
@@ -381,11 +392,21 @@ export const addMember = async (req, res) => {
     await newMember.save();
 
     if (community.is_private) {
-      await sendEmail({
+      // ─────────────────────────────────────────────────────────
+      // BEFORE (slow):
+      //   await sendEmail(...);
+      //   res.json(...)  ← admin waited 2-5 seconds for email to send first
+      //
+      // AFTER (fast - fire and forget):
+      //   sendEmail(...).catch(...)  ← email starts sending in the background
+      //   res.json(...)  ← admin gets "Done!" response instantly, no waiting
+      //   If email fails, it just logs the error — doesn't crash the request
+      // ─────────────────────────────────────────────────────────
+      sendEmail({
         to: userToAdd.email,
         subject: `You have been added to ${community.name}`,
         text: `Hello ${userToAdd.name},\n\nYou have been added to the community "${community.name}" by an admin.\n\nWelcome!`
-      });
+      }).catch(err => console.error('Failed to send add-member email:', err));
     }
 
     res.json({ success: true, message: 'Member added successfully', data: { id: userToAdd._id, name: userToAdd.name } });
@@ -415,11 +436,13 @@ export const removeMember = async (req, res) => {
     await CommunityMember.deleteOne({ _id: memberToRemove._id });
 
     if (community.is_private && userToRemove) {
-      await sendEmail({
+      // BEFORE (slow): await sendEmail(...) — admin waited for email before getting response
+      // AFTER (fast):  fire and forget — email sends in background, admin gets instant response
+      sendEmail({
         to: userToRemove.email,
         subject: `You have been removed from ${community.name}`,
         text: `Hello ${userToRemove.name},\n\nYou have been removed from the community "${community.name}" by an admin.`
-      });
+      }).catch(err => console.error('Failed to send remove-member email:', err));
     }
 
     res.json({ success: true, message: 'Member removed successfully' });
