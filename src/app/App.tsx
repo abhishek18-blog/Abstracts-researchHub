@@ -23,7 +23,8 @@ export default function App() {
   const [activeTab, setActiveTab] = useState(() => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
-      if (params.get('c')) return 'community';
+      const c = params.get('c');
+      if (c && c !== 'undefined') return 'community';
     }
     return localStorage.getItem('guest') ? 'discover' : 'library';
   });
