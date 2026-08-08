@@ -13,33 +13,30 @@ import { v4 as uuidv4 } from 'uuid';
 // e.g. "a3f2c1d0-..." instead of ObjectId("507f1...")
 const stringId = { type: String, default: () => uuidv4() };
 
+// BEFORE: the same transform function was written out twice — once in schemaOptions
+// and again word-for-word in schemaOptionsNoTS. If you ever changed one, you'd have
+// to remember to change the other too. Easy to forget and cause a bug.
+//
+// AFTER: extracted into one shared function. Change it in one place, applies everywhere.
+const toJSONTransform = (doc, ret) => {
+  ret.id = ret._id;   // rename _id → id (cleaner for frontend)
+  delete ret._id;     // remove the original _id
+  delete ret.__v;     // remove MongoDB's internal version key
+  return ret;
+};
+
 // schemaOptions: shared config for most models.
 // - timestamps: automatically adds created_at and updated_at fields
 // - toJSON.transform: cleans up the output sent to the frontend
-//   (renames _id to id, removes __v which is an internal MongoDB version field)
 const schemaOptions = {
   timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' },
-  toJSON: {
-    transform: function (doc, ret) {
-      ret.id = ret._id;      // rename _id → id (cleaner for frontend)
-      delete ret._id;        // remove the original _id
-      delete ret.__v;        // remove MongoDB's internal version key
-      return ret;
-    }
-  }
+  toJSON: { transform: toJSONTransform }  // reuses the shared function above
 };
 
 // Same as above but WITHOUT timestamps (used for join/linking tables
 // like SavedPaper, ReadingProgress, CommunityMember — they don't need timestamps)
 const schemaOptionsNoTS = {
-  toJSON: {
-    transform: function (doc, ret) {
-      ret.id = ret._id;
-      delete ret._id;
-      delete ret.__v;
-      return ret;
-    }
-  }
+  toJSON: { transform: toJSONTransform }  // same shared function, no duplication
 };
 
 // ─────────────────────────────────────────────
@@ -187,9 +184,11 @@ const communitySchema = new mongoose.Schema({
   created_by: { type: String, ref: 'User', required: true }, // user who created it
   is_private: { type: Boolean, default: false },       // if true, requires approval to join
   allow_invites: { type: Boolean, default: true },     // if true, members can invite others
-  cover_photo: { type: String },                       // Custom cover photo (Base64 or URL)
-  link: { type: String },                              // Custom community link
-  guidelines_link: { type: String }                    // Custom guidelines link
+  // ✅ NEW: Admin customization fields — added so admins can personalize their community card.
+  // These get saved to the database when the admin clicks 'Save' in the Edit panel.
+  cover_photo: { type: String },     // stores the cover image (either a URL or a base64 encoded image)
+  link: { type: String },            // a custom website/link the admin wants to show on the community card
+  guidelines_link: { type: String }  // link to the community rules/guidelines document
 }, schemaOptions);
 
 const Community = mongoose.model('Community', communitySchema);

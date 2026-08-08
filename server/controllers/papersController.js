@@ -26,7 +26,8 @@ export const getAllPapers = async (req, res) => {
       query.year = year;
     }
 
-    let papers = [];
+    // BEFORE: let papers = [];  ← useless empty box that got thrown away immediately
+    // AFTER: removed — we declare papers directly below when we actually have the data
     if (saved_by) {
       const userIdToFilter = saved_by === 'true' ? req.userId : saved_by;
       const savedEntries = await SavedPaper.find({ user_id: userIdToFilter });
@@ -36,27 +37,41 @@ export const getAllPapers = async (req, res) => {
       query._id = { $in: paperIds };
     }
 
-    let sortOpt = { citations: -1 };
-    switch (sort) {
-      case 'most_cited': sortOpt = { citations: -1 }; break;
-      case 'most_recent': sortOpt = { year: -1 }; break;
-      case 'oldest': sortOpt = { year: 1 }; break;
-    }
+    // BEFORE: switch with a 'most_cited' case that was identical to the default above it \u2014 pointless.
+    //   let sortOpt = { citations: -1 };
+    //   case 'most_cited': sortOpt = { citations: -1 }; ← same thing! does nothing new.
+    //
+    // AFTER: simplified to if/else \u2014 only handles cases that actually change something
+    let sortOpt = { citations: -1 }; // default: sort by most cited
+    if (sort === 'most_recent') sortOpt = { year: -1 };
+    else if (sort === 'oldest') sortOpt = { year: 1 };
     
-    papers = await Paper.find(query).sort(sortOpt);
+    // BEFORE: papers = await Paper.find(...)  ← was overwriting the useless empty [] above
+    // AFTER: const papers = ...  ← cleaner, 'const' means it will never be reassigned
+    const papers = await Paper.find(query).sort(sortOpt);
 
-    const result = [];
-    for (const paper of papers) {
-      if (!paper) continue;
-      const savedEntry = await SavedPaper.findOne({ user_id: req.userId, paper_id: paper._id });
-      const progressEntry = await ReadingProgress.findOne({ user_id: req.userId, paper_id: paper._id });
+    // ✅ FIXED: Instead of querying the DB once per paper (which causes 100 queries for 50 papers),
+    // we now do 2 bulk queries to get ALL saved + progress data for this user in one shot.
+    // Then we use a Set and a Map to look up each paper's status instantly (no extra DB trips).
+    const [allSaved, allProgress] = await Promise.all([
+      SavedPaper.find({ user_id: req.userId }).lean(),        // get all papers this user has saved
+      ReadingProgress.find({ user_id: req.userId }).lean()    // get all reading progress for this user
+    ]);
 
-      result.push({
+    // Build a Set of saved paper IDs so we can check "is this paper saved?" instantly
+    const savedSet = new Set(allSaved.map(s => String(s.paper_id)));
+
+    // Build a Map of paper ID → progress percentage for instant lookup
+    const progressMap = new Map(allProgress.map(p => [String(p.paper_id), p.progress]));
+
+    // Now simply map over papers — no DB queries inside the loop!
+    const result = papers
+      .filter(paper => paper) // skip any null/undefined entries
+      .map(paper => ({
         ...paper.toJSON(),
-        saved: !!savedEntry,
-        readingProgress: progressEntry ? progressEntry.progress : undefined,
-      });
-    }
+        saved: savedSet.has(String(paper._id)),                    // instant lookup from Set
+        readingProgress: progressMap.get(String(paper._id))       // instant lookup from Map
+      }));
 
     res.json({ success: true, data: result, count: result.length });
   } catch (error) {
