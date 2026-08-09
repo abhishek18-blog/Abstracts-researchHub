@@ -273,6 +273,7 @@ export interface JoinRequest {
 
 export interface Community {
   id: string;
+  _id?: string;  // MongoDB internal ID (sometimes present in raw API responses)
   name: string;
   description: string;
   subject: string;
