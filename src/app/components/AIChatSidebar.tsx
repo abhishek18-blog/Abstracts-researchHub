@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Send, X, ChevronLeft, Sparkles, Copy, ThumbsUp, ThumbsDown, Plus, Trash2, MessageSquare, Loader2, Check, BookOpen } from 'lucide-react';
+import { Send, X, ChevronLeft, Sparkles, Copy, Plus, Trash2, MessageSquare, Loader2, Check, BookOpen } from 'lucide-react';
 import { Badge } from './ui/badge';
 import { chatApi, aiApi, type Conversation, type ChatMessage } from '../services/api';
 
@@ -160,18 +160,30 @@ export function AIChatSidebar({ isOpen, onClose }: AIChatSidebarProps) {
     const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content;
     const topic = explicitTopic || lastUserMsg || "latest trends in AI and Research Platforms";
 
+    // Build robust context from recent conversation history for prompt engineering
+    const recentMessages = [...messages]
+      .filter(m => !m.id.startsWith('temp-') && m.role !== 'system' && !('isDiscoverPrompt' in m))
+      .slice(-10);
+      
+    const context = recentMessages.length > 0
+      ? recentMessages.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n')
+      : undefined;
+
+    const promptMessageText = `Please suggest exactly 5 highly relevant research papers regarding "${topic}". ${context ? 'Consider our recent conversation context.' : ''}`;
+
     setSending(true);
     try {
       const tempUserMsg: ChatMessage = {
         id: `temp-${Date.now()}`,
         conversation_id: activeConversationId || 'pending',
         role: 'user',
-        content: `Give me some research paper suggestions regarding "${topic}"`,
+        content: promptMessageText,
         created_at: new Date().toISOString(),
       };
       setMessages(prev => [...prev, tempUserMsg]);
 
-      const response = await aiApi.suggestPapers({ topic });
+      // Send robust request with context and precise count
+      const response = await aiApi.suggestPapers({ topic, context, count: 5 });
 
       setMessages(prev => [
         ...prev.filter(m => !m.id.startsWith('temp-')),
@@ -179,7 +191,7 @@ export function AIChatSidebar({ isOpen, onClose }: AIChatSidebarProps) {
           id: `user-${Date.now()}`,
           conversation_id: activeConversationId || '',
           role: 'user',
-          content: `Give me some research paper suggestions regarding "${topic}"`,
+          content: promptMessageText,
           created_at: new Date().toISOString(),
         },
         {
@@ -423,12 +435,7 @@ export function AIChatSidebar({ isOpen, onClose }: AIChatSidebarProps) {
                           <Copy className="w-3.5 h-3.5" />
                         )}
                       </button>
-                      <button className="p-2 hover:bg-muted rounded-xl transition-all text-muted-foreground">
-                        <ThumbsUp className="w-3.5 h-3.5" />
-                      </button>
-                      <button className="p-2 hover:bg-muted rounded-xl transition-all text-muted-foreground">
-                        <ThumbsDown className="w-3.5 h-3.5" />
-                      </button>
+
                       <span className="text-[10px] font-bold text-muted-foreground/40 uppercase tracking-tighter ml-2">Just now</span>
                     </div>
                   )}

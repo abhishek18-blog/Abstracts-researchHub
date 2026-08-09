@@ -90,21 +90,40 @@ export const suggestPapers = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Topic or context is required for suggestions' });
     }
 
-    const numSuggestions = count ? parseInt(count, 10) : null;
+    const numSuggestions = count ? parseInt(count, 10) : 5;
 
-    const prompt = context
-      ? `Based on the following research context, suggest ${numSuggestions ? `exactly ${numSuggestions}` : 'some'} relevant research papers. \n\n${context}`
-      : `Suggest ${numSuggestions ? `exactly ${numSuggestions}` : 'some'} modern and highly relevant research papers for the topic: "${topic}". For each paper, provide a title, a brief explanation of why it is relevant, and potential keywords.`;
+    const systemPrompt = `You are an elite academic research advisor and literature review assistant.
+
+Your task is to recommend highly relevant, impactful, and peer-reviewed research papers based on the user's input.
+
+<CONSTRAINTS>
+1. You MUST respond in valid JSON format matching the schema below.
+2. The "markdown" property must contain a polite, professional conversational response introducing the papers, followed by a neatly formatted list of the papers (including title, brief explanation of relevance, and keywords).
+3. The "queries" property must be a JSON array containing STRICTLY the exact titles of the suggested papers.
+4. CRITICAL: Do NOT use markdown bolding (**) or italics (*) anywhere in your output. Use plain text formatting for structure (e.g., standard numbers or dashes).
+5. You must provide exactly the requested number of papers.
+</CONSTRAINTS>
+
+<JSON_SCHEMA>
+{
+  "markdown": "string (conversational response and list of papers in plain text)",
+  "queries": ["string", "string"]
+}
+</JSON_SCHEMA>`;
+
+    const userPrompt = context
+      ? `Research Context:\n"""\n${context}\n"""\n\nBased on the above context, suggest exactly ${numSuggestions} highly relevant research papers.`
+      : `Topic: "${topic}"\n\nSuggest exactly ${numSuggestions} modern and highly relevant research papers for this topic.`;
 
     const chatCompletion = await groq.chat.completions.create({
       messages: [
         {
           role: 'system',
-          content: `You are an expert academic advisor. You must respond in valid JSON format with exactly two properties: "markdown" (containing your conversational response with the formatted list) and "queries" (a JSON array of strings containing exactly the titles of the papers you suggested). If the user asks for a specific number of papers, provide exactly that many. If no number is specified, provide exactly 5. CRITICAL: Do NOT use markdown bolding or asterisks (**) anywhere in your output. Provide plain text only.`,
+          content: systemPrompt,
         },
         {
           role: 'user',
-          content: prompt,
+          content: userPrompt,
         },
       ],
       model: 'openai/gpt-oss-120b',
