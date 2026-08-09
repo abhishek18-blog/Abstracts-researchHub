@@ -162,7 +162,7 @@ export function AIChatSidebar({ isOpen, onClose }: AIChatSidebarProps) {
 
     // Build robust context from recent conversation history for prompt engineering
     const recentMessages = [...messages]
-      .filter(m => !m.id.startsWith('temp-') && m.role !== 'system' && !('isDiscoverPrompt' in m))
+      .filter(m => !m.id.startsWith('temp-') && !('isDiscoverPrompt' in m))
       .slice(-10);
       
     const context = recentMessages.length > 0

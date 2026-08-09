@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { X, FolderOpen, Loader2, Plus, BookOpen, Trash2, Calendar, Tag, Search } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { X, FolderOpen, Loader2, Plus, Calendar, Tag, Search } from 'lucide-react';
 import { projectsApi, papersApi, type Paper } from '../services/api';
 
 interface CreateProjectModalProps {
@@ -29,14 +30,13 @@ export function CreateProjectModal({ isOpen, onClose, onCreated }: CreateProject
   const [selectedPapers, setSelectedPapers] = useState<string[]>([]);
   const [allPapers, setAllPapers] = useState<Paper[]>([]);
   const [paperSearch, setPaperSearch] = useState('');
-  const [showPaperPicker, setShowPaperPicker] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [step, setStep] = useState(1); // 1 = basics, 2 = add papers
+  const [step, setStep] = useState(1);
 
   useEffect(() => {
     if (isOpen) {
-      papersApi.getAll().then(r => setAllPapers(r.data)).catch(() => {});
+      papersApi.getAll().then(r => setAllPapers(r.data)).catch(() => { });
     }
   }, [isOpen]);
 
@@ -86,11 +86,10 @@ export function CreateProjectModal({ isOpen, onClose, onCreated }: CreateProject
         color,
       });
 
-      // Add selected papers to the project
       for (const paperId of selectedPapers) {
         try {
           await projectsApi.addPaper(res.data.id, paperId);
-        } catch { /* ignore if paper add fails */ }
+        } catch { /* ignore */ }
       }
 
       handleReset();
@@ -105,13 +104,15 @@ export function CreateProjectModal({ isOpen, onClose, onCreated }: CreateProject
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Overlay */}
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={onClose} />
 
-      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-xl mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+      {/* Modal Box */}
+      <div className="relative w-full max-w-xl max-h-[85vh] bg-white rounded-2xl shadow-2xl flex flex-col overflow-hidden z-10 text-left align-middle transition-all">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-[#E5E7EB] flex-shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E7EB] flex-shrink-0">
           <div className="flex items-center gap-3">
             <div className={`w-10 h-10 rounded-lg ${color} flex items-center justify-center`}>
               <FolderOpen className="w-5 h-5 text-white" />
@@ -127,13 +128,13 @@ export function CreateProjectModal({ isOpen, onClose, onCreated }: CreateProject
         </div>
 
         {/* Step indicator */}
-        <div className="flex gap-2 px-6 pt-4 flex-shrink-0">
+        <div className="flex gap-2 px-6 pt-3 flex-shrink-0">
           <div className={`h-1 flex-1 rounded-full transition-colors ${step >= 1 ? 'bg-[#1E40AF]' : 'bg-[#E5E7EB]'}`}></div>
           <div className={`h-1 flex-1 rounded-full transition-colors ${step >= 2 ? 'bg-[#1E40AF]' : 'bg-[#E5E7EB]'}`}></div>
         </div>
 
-        {/* Body */}
-        <div className="overflow-y-auto flex-1 px-6 py-5">
+        {/* Scrollable Body */}
+        <div className="flex-1 overflow-y-auto px-6 py-4">
           {error && (
             <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
               {error}
@@ -182,11 +183,10 @@ export function CreateProjectModal({ isOpen, onClose, onCreated }: CreateProject
                       key={opt.value}
                       type="button"
                       onClick={() => setColor(opt.value)}
-                      className={`w-10 h-10 rounded-lg transition-all ${opt.value} ${
-                        color === opt.value
-                          ? 'ring-2 ring-offset-2 ring-[#1E40AF] scale-110'
-                          : 'hover:scale-105 opacity-70 hover:opacity-100'
-                      }`}
+                      className={`w-10 h-10 rounded-lg transition-all ${opt.value} ${color === opt.value
+                        ? 'ring-2 ring-offset-2 ring-[#1E40AF] scale-110'
+                        : 'hover:scale-105 opacity-70 hover:opacity-100'
+                        }`}
                       title={opt.label}
                     />
                   ))}
@@ -248,7 +248,6 @@ export function CreateProjectModal({ isOpen, onClose, onCreated }: CreateProject
                 Select papers from your library to include in this project. You can always add more later.
               </p>
 
-              {/* Search */}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF]" />
                 <input
@@ -260,14 +259,12 @@ export function CreateProjectModal({ isOpen, onClose, onCreated }: CreateProject
                 />
               </div>
 
-              {/* Selected count */}
               {selectedPapers.length > 0 && (
                 <div className="px-3 py-2 bg-[#EFF6FF] border border-[#BFDBFE] rounded-lg text-sm text-[#1E40AF] font-medium">
                   ✓ {selectedPapers.length} paper{selectedPapers.length > 1 ? 's' : ''} selected
                 </div>
               )}
 
-              {/* Papers list */}
               <div className="space-y-2 max-h-[320px] overflow-y-auto">
                 {filteredPapers.length === 0 ? (
                   <p className="text-center text-sm text-[#9CA3AF] py-8">No papers found in your library</p>
@@ -278,16 +275,14 @@ export function CreateProjectModal({ isOpen, onClose, onCreated }: CreateProject
                       <button
                         key={paper.id}
                         onClick={() => togglePaper(paper.id)}
-                        className={`w-full text-left px-4 py-3 rounded-xl border transition-all ${
-                          isSelected
-                            ? 'border-[#1E40AF] bg-[#EFF6FF]'
-                            : 'border-[#E5E7EB] bg-white hover:border-[#93C5FD] hover:bg-[#F9FAFB]'
-                        }`}
+                        className={`w-full text-left px-4 py-3 rounded-xl border transition-all ${isSelected
+                          ? 'border-[#1E40AF] bg-[#EFF6FF]'
+                          : 'border-[#E5E7EB] bg-white hover:border-[#93C5FD] hover:bg-[#F9FAFB]'
+                          }`}
                       >
                         <div className="flex items-start gap-3">
-                          <div className={`w-5 h-5 rounded border-2 mt-0.5 flex items-center justify-center flex-shrink-0 transition-colors ${
-                            isSelected ? 'bg-[#1E40AF] border-[#1E40AF]' : 'border-[#D1D5DB]'
-                          }`}>
+                          <div className={`w-5 h-5 rounded border-2 mt-0.5 flex items-center justify-center flex-shrink-0 transition-colors ${isSelected ? 'bg-[#1E40AF] border-[#1E40AF]' : 'border-[#D1D5DB]'
+                            }`}>
                             {isSelected && (
                               <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -354,6 +349,7 @@ export function CreateProjectModal({ isOpen, onClose, onCreated }: CreateProject
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
