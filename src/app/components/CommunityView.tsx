@@ -305,13 +305,13 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
     );
 
     return (
-      <div className="flex-1 bg-muted/10 overflow-y-auto h-full p-6 lg:p-8 animate-in fade-in duration-500">
-        <div className="w-full max-w-7xl mx-auto flex gap-6 md:gap-8 items-start">
+      <div className="flex-1 bg-muted/10 overflow-hidden h-full flex justify-center animate-in fade-in duration-500">
+        <div className="w-full max-w-7xl flex gap-6 md:gap-8 h-full pt-6 lg:pt-8 px-6 lg:px-8">
           
           {/* Main Feed Column */}
-          <div className="flex-1 max-w-3xl space-y-6">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-xl font-bold text-foreground">New Post</h2>
+          <div className="flex-1 max-w-3xl flex flex-col space-y-6 h-full relative overflow-y-auto custom-scrollbar pr-2 pb-6">
+            <div className="flex items-center justify-between mb-2 shrink-0">
+              <h2 className="text-xl font-bold text-foreground">Community Feed</h2>
               <button 
                 onClick={() => setSelected(null)}
                 className="text-muted-foreground hover:text-foreground text-sm font-medium flex items-center gap-2"
@@ -320,120 +320,102 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
               </button>
             </div>
 
-            {selected.is_private && !selected.isMember ? (
-              <div className="bg-card border border-border/60 rounded-[28px] p-12 text-center shadow-sm flex flex-col items-center justify-center min-h-[400px] animate-in fade-in zoom-in-95 duration-500">
-                <Lock className="w-16 h-16 text-muted-foreground/30 mx-auto mb-6" />
-                <h3 className="text-2xl font-bold text-foreground mb-3">Private Community</h3>
-                <p className="text-muted-foreground text-[15px] mb-8 max-w-sm mx-auto">
-                  This community is private. You must request access from an admin to view discussions and participate.
-                </p>
-                <button 
-                  onClick={() => handleJoin(selected.id)} 
-                  disabled={actionLoading === selected.id}
-                  className="px-8 py-3 bg-primary text-primary-foreground rounded-full font-bold text-[15px] hover:opacity-90 disabled:opacity-50 transition-opacity"
-                >
-                  {actionLoading === selected.id ? 'Requesting...' : 'Request to Join'}
-                </button>
-              </div>
-            ) : (
-              <>
-                {/* Post Composer */}
-                {selected.isMember ? (
-                  <div className="bg-card border border-border/60 rounded-[28px] p-5 shadow-sm">
-                    <textarea
-                      value={postInput}
-                      onChange={e => setPostInput(e.target.value)}
-                      placeholder="Share something with the community..."
-                      className="w-full bg-muted/30 border border-border/50 rounded-2xl p-4 focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground resize-none min-h-[100px] text-[15px]"
-                    />
-                    
-                    {/* Attached Paper Preview */}
-                    {attachedPaperIds.length > 0 && (
-                      <div className="mt-4 flex flex-col gap-2">
-                        {attachedPaperIds.map(id => (
-                          <div key={id} className="flex items-center gap-4 p-3 bg-primary/5 border border-primary/10 rounded-xl">
-                            <BookOpen className="w-4 h-4 text-primary" />
-                            <span className="text-sm font-medium flex-1 truncate">
-                              {localPapers.find(p => p.id === id)?.title}
-                            </span>
-                            <button onClick={() => setAttachedPaperIds(prev => prev.filter(pid => pid !== id))} className="text-muted-foreground hover:text-red-500">
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
+            {/* Posts Feed */}
+            <div className="space-y-5 flex-1 pb-6">
+              {cardLoading ? (
+                 <div className="flex justify-center py-20 bg-card rounded-[28px] shadow-sm border border-border/60">
+                   <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                 </div>
+              ) : (selected.posts || []).length === 0 ? (
+                 <div className="text-center py-20 bg-card rounded-[28px] shadow-sm">
+                    <p className="text-muted-foreground">No posts yet. Be the first to share an idea!</p>
+                 </div>
+              ) : (
+                (selected.posts || []).map(post => (
+                  <PostCard 
+                    key={post.id} 
+                    post={post} 
+                    currentUser={currentUser} 
+                    onDelete={handleDeletePost} 
+                    onPaperSelect={onPaperSelect}
+                  />
+                ))
+              )}
+            </div>
 
-                    <div className="flex items-center justify-between mt-4">
-                      <div className="flex items-center gap-2 relative">
-                        <button onClick={() => setShowPaperPicker(!showPaperPicker)} className="p-2.5 text-muted-foreground hover:bg-muted rounded-full transition-colors relative">
-                          <Paperclip className="w-5 h-5" />
-                        </button>
-                        
-                        {/* Paper Picker Dropdown */}
-                        {showPaperPicker && (
-                          <div className="absolute top-full left-0 mt-2 w-64 bg-card border border-border rounded-2xl shadow-xl z-20 max-h-64 overflow-y-auto">
-                            {localPapers.map(p => (
-                              <div key={p.id} onClick={() => { setAttachedPaperIds(prev => prev.includes(p.id) ? prev.filter(id => id !== p.id) : [...prev, p.id]); }} className="p-3 hover:bg-muted cursor-pointer border-b border-border/50 last:border-0 flex items-center justify-between">
-                                <div className="min-w-0 pr-2">
-                                  <p className="text-sm font-bold truncate">{p.title}</p>
-                                  <p className="text-[10px] text-muted-foreground">{p.authors[0]} · {p.year}</p>
-                                </div>
-                                {attachedPaperIds.includes(p.id) && <div className="w-2 h-2 rounded-full bg-primary shrink-0"></div>}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <button
-                        onClick={handlePost}
-                        disabled={!postInput.trim() || sending}
-                        className="px-6 py-2 bg-primary text-primary-foreground rounded-full text-sm font-bold hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
-                      >
-                        {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                        Post
-                      </button>
+            {/* Post Composer - Floating at bottom */}
+            <div className="sticky bottom-6 w-full z-20 mt-auto">
+              {selected.isMember ? (
+                <div className="bg-card/95 backdrop-blur-xl border-4 border-black dark:border-white rounded-[32px] p-5 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)]">
+                  <textarea
+                    value={postInput}
+                    onChange={e => setPostInput(e.target.value)}
+                    placeholder="Share something with the community..."
+                    className="w-full bg-background border-2 border-black dark:border-white rounded-2xl p-4 focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white text-foreground resize-none min-h-[80px] text-[15px] font-medium"
+                  />
+                  
+                  {/* Attached Paper Preview */}
+                  {attachedPaperIds.length > 0 && (
+                    <div className="mt-4 flex flex-col gap-2">
+                      {attachedPaperIds.map(id => (
+                        <div key={id} className="flex items-center gap-4 p-3 bg-primary/5 border border-primary/10 rounded-xl">
+                          <BookOpen className="w-4 h-4 text-primary" />
+                          <span className="text-sm font-medium flex-1 truncate">
+                            {localPapers.find(p => p.id === id)?.title}
+                          </span>
+                          <button onClick={() => setAttachedPaperIds(prev => prev.filter(pid => pid !== id))} className="text-muted-foreground hover:text-red-500">
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
                     </div>
-                  </div>
-                ) : (
-                  <div className="bg-card border border-border/60 rounded-[28px] p-8 text-center shadow-sm">
-                    <Lock className="w-10 h-10 text-muted-foreground/50 mx-auto mb-4" />
-                    <h4 className="text-lg font-bold text-foreground mb-2">Join to Post</h4>
-                    <p className="text-muted-foreground text-sm mb-6">You must join this community to participate in discussions.</p>
-                    <button onClick={() => handleJoin(selected.id)} className="px-6 py-2.5 bg-primary text-primary-foreground rounded-full font-bold text-sm">
-                      Join Community
+                  )}
+
+                  <div className="flex items-center justify-between mt-4">
+                    <div className="flex items-center gap-2 relative">
+                      <button onClick={() => setShowPaperPicker(!showPaperPicker)} className="p-2.5 text-muted-foreground hover:bg-muted rounded-full transition-colors relative">
+                        <Paperclip className="w-5 h-5" />
+                      </button>
+                      
+                      {/* Paper Picker Dropdown */}
+                      {showPaperPicker && (
+                        <div className="absolute bottom-full left-0 mb-2 w-64 bg-card border border-border rounded-2xl shadow-xl z-30 max-h-64 overflow-y-auto">
+                          {localPapers.map(p => (
+                            <div key={p.id} onClick={() => { setAttachedPaperIds(prev => prev.includes(p.id) ? prev.filter(id => id !== p.id) : [...prev, p.id]); }} className="p-3 hover:bg-muted cursor-pointer border-b border-border/50 last:border-0 flex items-center justify-between">
+                              <div className="min-w-0 pr-2">
+                                <p className="text-sm font-bold truncate">{p.title}</p>
+                                <p className="text-[10px] text-muted-foreground">{p.authors[0]} · {p.year}</p>
+                              </div>
+                              {attachedPaperIds.includes(p.id) && <div className="w-2 h-2 rounded-full bg-primary shrink-0"></div>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <button
+                      onClick={handlePost}
+                      disabled={!postInput.trim() || sending}
+                      className="px-6 py-2 bg-primary text-primary-foreground rounded-full text-sm font-bold hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
+                    >
+                      {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                      Post
                     </button>
                   </div>
-                )}
-
-                {/* Posts Feed */}
-                <div className="space-y-5 mt-8 pb-10">
-                  {cardLoading ? (
-                     <div className="flex justify-center py-20 bg-card rounded-[28px] shadow-sm border border-border/60">
-                       <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                     </div>
-                  ) : (selected.posts || []).length === 0 ? (
-                     <div className="text-center py-20 bg-card rounded-[28px] shadow-sm">
-                        <p className="text-muted-foreground">No posts yet. Be the first to share an idea!</p>
-                     </div>
-                  ) : (
-                    (selected.posts || []).map(post => (
-                      <PostCard 
-                        key={post.id} 
-                        post={post} 
-                        currentUser={currentUser} 
-                        onDelete={handleDeletePost} 
-                        onPaperSelect={onPaperSelect}
-                      />
-                    ))
-                  )}
                 </div>
-              </>
-            )}
+              ) : (
+                <div className="bg-card/95 backdrop-blur-xl border-4 border-black dark:border-white rounded-[32px] p-6 text-center shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)]">
+                  <h4 className="text-[15px] font-bold text-foreground mb-2">Join to Post</h4>
+                  <p className="text-muted-foreground text-[13px] mb-4">You must join this community to participate in discussions.</p>
+                  <button onClick={() => handleJoin(selected.id)} className="px-6 py-2 bg-primary text-primary-foreground rounded-full font-bold text-xs">
+                    Join Community
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Right Sidebar Column */}
-          <div className="w-[320px] xl:w-[350px] shrink-0 space-y-6 hidden lg:block sticky top-8">
+          <div className="w-[320px] xl:w-[350px] shrink-0 space-y-6 hidden lg:block h-full overflow-y-auto custom-scrollbar pr-2 pb-6">
             
             {/* About Card */}
             <div className="bg-card border border-border/60 rounded-[28px] overflow-hidden shadow-sm">
