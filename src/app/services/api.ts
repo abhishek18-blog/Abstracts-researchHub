@@ -257,69 +257,7 @@ export const userApi = {
     request<{ message: string }>('/user/account', { method: 'DELETE' }),
 };
 
-// ─── Auth ────────────────────────────────────────────────────────────────────
 
-export const authApi = {
-  forgotPassword: (email: string, newPassword: string) =>
-    request<{ message: string }>('/auth/forgot-password', {
-      method: 'POST',
-      body: JSON.stringify({ email, newPassword }),
-    }),
-};
-
-// ─── Uploads ─────────────────────────────────────────────────────────────────
-
-export interface Upload {
-  id: string;
-  filename: string;
-  original_name: string;
-  mime_type: string;
-  size_bytes: number;
-  url: string;
-  created_at: string;
-}
-
-export const uploadsApi = {
-  upload: (file: File) => {
-    const formData = new FormData();
-    formData.append('pdf', file);
-    return request<Upload & { url: string }>('/upload', {
-      method: 'POST',
-      body: formData,
-    });
-  },
-
-  getAll: () => request<Upload[]>('/upload'),
-
-  delete: (id: string) => request<void>(`/upload/${id}`, { method: 'DELETE' }),
-};
-
-// ─── Stats ───────────────────────────────────────────────────────────────────
-
-export interface DashboardStats {
-  overview: {
-    totalPapers: number;
-    savedPapers: number;
-    totalProjects: number;
-    inProgress: number;
-    completed: number;
-    avgProgress: number;
-    totalConversations: number;
-    totalUploads: number;
-  };
-  recentActivity: {
-    paperId: string;
-    title: string;
-    progress: number;
-    lastReadAt: string;
-  }[];
-  topTags: { tag: string; count: number }[];
-  papersByYear: { year: string; count: number }[];
-}
-
-export const statsApi = {
-  getDashboard: () => request<DashboardStats>('/stats/dashboard'),
-};
 
 // ─── Community ───────────────────────────────────────────────────────────────
 
