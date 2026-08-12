@@ -370,10 +370,11 @@ export interface ExternalPaper {
 }
 
 export const searchApi = {
-  searchPapers: (q: string, limit = 10, offset = 0, year?: string, sort?: string) => {
+  searchPapers: (q: string, limit = 10, offset = 0, year?: string, sort?: string, noOpenAlex?: boolean) => {
     let url = `/search/papers?q=${encodeURIComponent(q)}&limit=${limit}&offset=${offset}`;
     if (year) url += `&year=${encodeURIComponent(year)}`;
     if (sort) url += `&sort=${encodeURIComponent(sort)}`;
+    if (noOpenAlex) url += `&noOpenAlex=true`;
     return request<ExternalPaper[]>(url);
   },
   importPaper: (paper: Partial<ExternalPaper>) =>

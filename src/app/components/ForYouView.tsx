@@ -25,8 +25,8 @@ export function ForYouView({ userInterests, onGoToSettings }: ForYouViewProps) {
       for (let idx = 0; idx < userInterests.length; idx++) {
         const interest = userInterests[idx];
         try {
-          // Request recent papers (2024-) sorted by publication date
-          const res = await searchApi.searchPapers(interest, 6, 0, '2024-', 'publicationDate:desc');
+          // Request recent papers (2024-) sorted by publication date, strictly skip OpenAlex fallback
+          const res = await searchApi.searchPapers(interest, 6, 0, '2024-', 'publicationDate:desc', true);
           setFeeds(prev => prev.map((f, i) =>
             i === idx ? { ...f, papers: res.data, loading: false } : f
           ));

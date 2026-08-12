@@ -182,7 +182,7 @@ async function rescueAbstract(paper) {
 // GET /api/search/papers?q=query — search real papers (with 3-tier fallback)
 export async function searchExternalPapers(req, res) {
   try {
-    const { q, limit = 10, offset = 0, year, sort } = req.query;
+    const { q, limit = 10, offset = 0, year, sort, noOpenAlex } = req.query;
     if (!q || !q.trim()) {
       return res.status(400).json({ success: false, error: 'Search query (q) is required' });
     }
@@ -233,7 +233,7 @@ export async function searchExternalPapers(req, res) {
     }
 
     // Tier 3: Try OpenAlex (Crucial fallback so main Discover search doesn't break)
-    if (!result) {
+    if (!result && noOpenAlex !== 'true') {
       try {
         console.log('🔄 [Tier 3] Falling back to OpenAlex...');
         result = await searchOpenAlex(q, Number(limit), Number(offset), options);
