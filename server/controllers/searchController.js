@@ -2,6 +2,11 @@ import { Paper, SavedPaper } from '../models/index.js';
 import dotenv from 'dotenv';
 dotenv.config();
 
+// [SECURITY - N-C2]: Escape regex metacharacters to prevent ReDoS attacks
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 // ─── Simple In-Memory Cache ──────────────────────────────────────
 const searchCache = new Map();
 const CACHE_TTL = 1000 * 60 * 60; // 1 hour
@@ -283,7 +288,7 @@ export async function importExternalPaper(req, res) {
       return res.status(400).json({ success: false, error: 'Paper title is required' });
     }
 
-    const orConditions = [{ title: new RegExp('^' + title + '$', 'i') }];
+    const orConditions = [{ title: new RegExp('^' + escapeRegex(title) + '$', 'i') }];
     if (doi) orConditions.push({ doi });
     if (externalId) orConditions.push({ external_id: externalId });
 

@@ -2,13 +2,18 @@ import { Community, CommunityMember, CommunityPost, User, Paper, JoinRequest } f
 import { sendEmail } from '../utils/email.js';
 import xss from 'xss';
 
+// [SECURITY - N-C2]: Escape regex metacharacters to prevent ReDoS attacks
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 export const getAllCommunities = async (req, res) => {
   try {
     const { search, subject } = req.query;
     
     let query = {};
     if (search) {
-      const q = new RegExp(search, 'i');
+      const q = new RegExp(escapeRegex(search), 'i');
       query.$or = [
         { name: q },
         { description: q },
@@ -174,7 +179,15 @@ export const updateCommunity = async (req, res) => {
     // Only update the fields that were actually sent in the request
     // This prevents accidentally wiping out existing data
     const { cover_photo, link, guidelines_link } = req.body;
-    if (cover_photo !== undefined) community.cover_photo = cover_photo;
+    if (cover_photo !== undefined) {
+      // [SECURITY - N-M3]: Cap cover photo size at 2MB.
+      // Unlimited base64 strings can bloat MongoDB documents toward the 16MB doc limit.
+      const MAX_COVER_SIZE = 2 * 1024 * 1024; // 2MB in chars (base64 ~= file size)
+      if (typeof cover_photo === 'string' && cover_photo.length > MAX_COVER_SIZE) {
+        return res.status(400).json({ success: false, error: 'Cover photo must be under 2MB' });
+      }
+      community.cover_photo = cover_photo;
+    }
     if (link !== undefined) community.link = link;
     if (guidelines_link !== undefined) community.guidelines_link = guidelines_link;
 

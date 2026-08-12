@@ -11,10 +11,12 @@ build/
 .idea/
 *.swp
 
-# Logs
+# Logs — may contain user IDs, request paths, or stack traces (SECURITY - M4)
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+*.log
+server/server.log
 
 # Environment variables
 .env

@@ -102,15 +102,6 @@ export function CenterFeed({ activeTab, onPaperSelect }: CenterFeedProps) {
     }
   };
 
-  const handleDeletePaper = async (paperId: string) => {
-    try {
-      await papersApi.delete(paperId);
-      setPapers(prev => prev.filter(p => p.id !== paperId));
-    } catch (err) {
-      console.error('Failed to delete paper:', err);
-      alert('Failed to delete paper. Please try again.');
-    }
-  };
 
   const handleDeleteProject = async (projectId: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -269,7 +260,6 @@ export function CenterFeed({ activeTab, onPaperSelect }: CenterFeedProps) {
                     {...paper}
                     onPaperClick={() => onPaperSelect?.(paper.id)}
                     onToggleSave={() => handleToggleSave(paper.id)}
-                    onDelete={handleDeletePaper}
                   />
                 ))}
               </div>
@@ -342,7 +332,6 @@ export function CenterFeed({ activeTab, onPaperSelect }: CenterFeedProps) {
                 {...paper}
                 onPaperClick={() => onPaperSelect?.(paper.id)}
                 onToggleSave={() => handleToggleSave(paper.id)}
-                onDelete={handleDeletePaper}
               />
             ))}
           </div>

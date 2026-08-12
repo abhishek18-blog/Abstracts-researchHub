@@ -1,9 +1,7 @@
 import Groq from 'groq-sdk';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import dotenv from 'dotenv';
-
-dotenv.config();
+// [SECURITY - N-L2]: dotenv is already loaded once in server/index.js — no need to re-load here
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

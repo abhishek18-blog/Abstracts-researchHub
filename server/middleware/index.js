@@ -1,6 +1,12 @@
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_key';
+// [SECURITY - C2]: Fail loudly if JWT_SECRET is not set.
+// Using a fallback secret ('fallback_secret_key') would let anyone forge valid tokens.
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.error('❌ FATAL: JWT_SECRET environment variable is not set. Server cannot start securely.');
+  process.exit(1);
+}
 
 // Auth middleware — verifies JWT token
 export function authMiddleware(req, res, next) {
@@ -21,12 +27,8 @@ export function authMiddleware(req, res, next) {
     }
   }
 
-  // Fallback for demo or development purposes if no bearer token is present
-  const userId = req.headers['x-user-id'];
-  if (userId) {
-    req.userId = userId;
-    return next();
-  }
+  // [SECURITY - C3]: Removed x-user-id header fallback.
+  // It allowed any caller to impersonate any user without a valid JWT token.
   
   return res.status(401).json({ success: false, error: 'Authentication required' });
 }
@@ -46,14 +48,15 @@ export function errorHandler(err, req, res, next) {
     return res.status(400).json({ success: false, error: err.message });
   }
 
-  // Handle generic errors with more detail in development or for identification
-  const errorMessage = err.message || 'Internal server error';
+  // [SECURITY - M2]: Hide internal error details in production.
+  // Raw error messages (Mongoose/MongoDB) can reveal schema details to attackers.
+  const isDev = process.env.NODE_ENV !== 'production';
+  const errorMessage = isDev ? (err.message || 'Internal server error') : 'Internal server error';
   console.error(`ERROR context: ${req.method} ${req.originalUrl}`);
   
   res.status(500).json({ 
     success: false, 
     error: errorMessage,
-    // Avoid sending full stack to client for security, but message is helpful
   });
 }
 

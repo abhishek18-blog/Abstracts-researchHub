@@ -1,4 +1,4 @@
-import { Paper, SavedPaper, ReadingProgress, Project, Upload, AbstractHighlight } from '../models/index.js';
+import { Paper, SavedPaper, ReadingProgress, Project, AbstractHighlight } from '../models/index.js';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -6,13 +6,19 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// [SECURITY - N-C2]: Escape user input before using in RegExp to prevent ReDoS.
+// An unescaped string like "(((a+)+)+)" causes exponential backtracking in the regex engine.
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 export const getAllPapers = async (req, res) => {
   try {
     const { search, sort, tag, year, saved_by } = req.query;
     
     let query = {};
     if (search) {
-      const q = new RegExp(search, 'i');
+      const q = new RegExp(escapeRegex(search), 'i');
       query.$or = [
         { title: q },
         { abstract: q },
@@ -81,7 +87,9 @@ export const getAllPapers = async (req, res) => {
       query: req.query,
       userId: req.userId
     });
-    res.status(500).json({ success: false, error: 'Failed to fetch papers: ' + error.message });
+    // [SECURITY - N-M1]: Don't expose raw error.message in production
+    const isDev = process.env.NODE_ENV !== 'production';
+    res.status(500).json({ success: false, error: isDev ? 'Failed to fetch papers: ' + error.message : 'Failed to fetch papers' });
   }
 };
 
@@ -129,7 +137,15 @@ export const getPaperById = async (req, res) => {
         }
 
         // 3. Fallback to HTML Scraping from source url meta tags (fixes user's issue entirely)
-        if ((!fetchedAbstract || fetchedAbstract.trim().length < 20) && paper.source_url) {
+        // [SECURITY - N-L4]: Validate source_url is a safe http/https URL before fetching.
+        // Without this, an attacker could supply file:// or http://internal-service URLs (SSRF).
+        let isSafeUrl = false;
+        try {
+          const parsedUrl = new URL(paper.source_url);
+          isSafeUrl = parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:';
+        } catch { /* invalid URL — skip */ }
+
+        if ((!fetchedAbstract || fetchedAbstract.trim().length < 20) && isSafeUrl) {
           try {
             const htmlRes = await fetch(paper.source_url, {
               headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
@@ -206,6 +222,15 @@ export const createPaper = async (req, res) => {
 
 export const updatePaper = async (req, res) => {
   try {
+    // [SECURITY - N-C1]: Restrict paper modification to admin roles only.
+    // Without this check, any authenticated user could edit any paper in the database.
+    const { User } = await import('../models/index.js');
+    const requestingUser = await User.findById(req.userId);
+    const ADMIN_ROLES = ['admin', 'Admin'];
+    if (!requestingUser || !ADMIN_ROLES.includes(requestingUser.role)) {
+      return res.status(403).json({ success: false, error: 'Only admins can update papers' });
+    }
+
     const existing = await Paper.findById(req.params.id);
     if (!existing) {
       return res.status(404).json({ success: false, error: 'Paper not found' });
@@ -231,31 +256,31 @@ export const updatePaper = async (req, res) => {
 
 export const deletePaper = async (req, res) => {
   try {
+    // [SECURITY - N-C1]: Restrict paper deletion to admin roles only.
+    const { User } = await import('../models/index.js');
+    const requestingUser = await User.findById(req.userId);
+    const ADMIN_ROLES = ['admin', 'Admin'];
+    if (!requestingUser || !ADMIN_ROLES.includes(requestingUser.role)) {
+      return res.status(403).json({ success: false, error: 'Only admins can delete papers' });
+    }
+
     const existing = await Paper.findById(req.params.id);
     if (!existing) {
       return res.status(404).json({ success: false, error: 'Paper not found' });
     }
 
-    // Find and delete associated uploads/files
-    const uploads = await Upload.find({ paper_id: existing._id });
-    for (const upload of uploads) {
-      const filePath = path.join(__dirname, '..', 'uploads', upload.filename);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
-      await Upload.deleteOne({ _id: upload._id });
-    }
-
-    await Paper.deleteOne({ _id: existing._id });
+    // 2. Remove paper from all users' saved papers and reading progress
     await SavedPaper.deleteMany({ paper_id: existing._id });
     await ReadingProgress.deleteMany({ paper_id: existing._id });
-
-    // Remove from projects
+    await AbstractHighlight.deleteMany({ paper_id: existing._id });
+    
     const projects = await Project.find({ papers: existing._id });
     for (const project of projects) {
       project.papers = project.papers.filter(p => String(p) !== String(existing._id));
       await project.save();
     }
+
+    await Paper.deleteOne({ _id: existing._id });
 
     res.json({ success: true, message: 'Paper deleted and storage cleared' });
   } catch (error) {

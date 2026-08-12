@@ -1,9 +1,8 @@
 import { Conversation, Message } from '../models/index.js';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import Groq from 'groq-sdk';
-import dotenv from 'dotenv';
-
-dotenv.config();
+import xss from 'xss'; // [SECURITY - N-L3]: sanitize user messages before storing
+// [SECURITY - N-L2]: dotenv is already loaded once in server/index.js — don't reload here
 
 // Initialize AI SDKs
 const genAI = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
@@ -179,6 +178,15 @@ export const sendMessage = async (req, res) => {
     if (!content || !content.trim()) {
       return res.status(400).json({ success: false, error: 'Message content is required' });
     }
+    // [SECURITY - N-H2]: Limit message length to prevent Groq API token abuse.
+    // An attacker could send 100k-character messages to burn your entire token budget.
+    const MAX_CHAT_LENGTH = 4000;
+    if (content.trim().length > MAX_CHAT_LENGTH) {
+      return res.status(400).json({ 
+        success: false, 
+        error: `Message too long. Maximum ${MAX_CHAT_LENGTH} characters allowed.` 
+      });
+    }
 
     const conversation = await Conversation.findOne({ _id: req.params.id, user_id: req.userId });
     if (!conversation) {
@@ -188,14 +196,18 @@ export const sendMessage = async (req, res) => {
     // Get previous messages for context
     const previousMessages = await Message.find({ conversation_id: conversation._id }).sort({ created_at: 1 });
 
+    // [SECURITY - N-L3]: Sanitize message content with XSS library before storing.
+    // Prevents malicious script tags from being stored and potentially rendered.
+    const sanitizedContent = xss(content.trim());
+
     const userMessage = new Message({
       conversation_id: conversation._id,
       role: 'user',
-      content: content.trim()
+      content: sanitizedContent
     });
     await userMessage.save();
 
-    const aiContent = await getAIResponse(previousMessages, content.trim());
+    const aiContent = await getAIResponse(previousMessages, sanitizedContent);
     const aiMessage = new Message({
       conversation_id: conversation._id,
       role: 'assistant',

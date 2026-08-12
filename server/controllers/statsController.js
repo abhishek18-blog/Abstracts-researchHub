@@ -1,4 +1,4 @@
-import { Paper, SavedPaper, Project, ReadingProgress, Conversation, Upload } from '../models/index.js';
+import { Paper, SavedPaper, Project, ReadingProgress, Conversation } from '../models/index.js';
 
 export const getDashboardStats = async (req, res) => {
   try {
@@ -17,7 +17,6 @@ export const getDashboardStats = async (req, res) => {
         : 0;
 
     const totalConversations = await Conversation.countDocuments({ user_id: userId });
-    const totalUploads = await Upload.countDocuments({ user_id: userId });
 
     const recentReadings = await ReadingProgress.find({ user_id: userId })
       .sort({ last_read_at: -1 })
@@ -67,7 +66,6 @@ export const getDashboardStats = async (req, res) => {
           completed,
           avgProgress,
           totalConversations,
-          totalUploads,
         },
         recentActivity,
         topTags,
