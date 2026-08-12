@@ -237,7 +237,7 @@ export async function searchExternalPapers(req, res) {
       }
     }
 
-    // Tier 3: Try OpenAlex
+    // Tier 3: Try OpenAlex (Crucial fallback so main Discover search doesn't break)
     if (!result) {
       try {
         console.log('🔄 [Tier 3] Falling back to OpenAlex...');
@@ -257,6 +257,14 @@ export async function searchExternalPapers(req, res) {
       result.papers = await Promise.all(
         result.papers.map(p => rescueAbstract(p))
       );
+      
+      // Filter out papers with bad metadata (future years)
+      const currentYear = new Date().getFullYear();
+      result.papers = result.papers.filter(p => {
+        if (!p.year || p.year === 'N/A') return true;
+        const yearInt = parseInt(p.year, 10);
+        return !isNaN(yearInt) && yearInt <= currentYear;
+      });
     }
 
     const responseData = {
