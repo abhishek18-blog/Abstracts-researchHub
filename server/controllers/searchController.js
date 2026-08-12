@@ -82,14 +82,9 @@ async function searchSemanticScholar(q, limit, offset, useApiKey = true, options
 async function searchOpenAlex(q, limit, offset, options = {}) {
   let apiUrl = `https://api.openalex.org/works?filter=title_and_abstract.search:${encodeURIComponent(q)}`;
 
-  if (options.year) {
-    const cleanYear = options.year.replace('-', '').trim();
-    if (cleanYear && !isNaN(cleanYear)) {
-      apiUrl += `,publication_year:>${Number(cleanYear) - 1}`;
-    }
-  }
-
-  apiUrl += `&per_page=${limit}&page=${Math.floor(offset / limit) + 1}&select=id,title,authorships,publication_year,cited_by_count,open_access,doi,primary_location,abstract_inverted_index&sort=publication_date:desc`;
+  // Ignore year and sort restrictions for OpenAlex to avoid future-dated garbage 
+  // and ensure we always return highly relevant fallback results.
+  apiUrl += `&per_page=${limit}&page=${Math.floor(offset / limit) + 1}&select=id,title,authorships,publication_year,cited_by_count,open_access,doi,primary_location,abstract_inverted_index`;
 
   const response = await fetch(apiUrl, {
     headers: {
