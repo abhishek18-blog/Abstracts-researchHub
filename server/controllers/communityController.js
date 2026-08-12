@@ -428,9 +428,10 @@ export const deleteCommunity = async (req, res) => {
 
     // [SECURITY]: Critical Action Authorization
     // Deleting a community cascades and deletes all posts, members, and requests.
-    // This is highly destructive, so we enforce a strict authorization gate requiring 'admin' role.
-    const isAdmin = await CommunityMember.findOne({ community_id: req.params.id, user_id: req.userId, role: 'admin' });
-    if (!isAdmin) return res.status(403).json({ success: false, error: 'Only admins can delete a community' });
+    // This is highly destructive, so we enforce a strict rule: ONLY the original creator can delete it.
+    if (String(community.created_by) !== String(req.userId)) {
+      return res.status(403).json({ success: false, error: 'Only the original creator can delete this community' });
+    }
 
     await Community.deleteOne({ _id: community._id });
     await CommunityMember.deleteMany({ community_id: community._id });
