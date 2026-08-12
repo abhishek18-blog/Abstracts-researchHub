@@ -158,7 +158,7 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
       if (selected?.id === communityId) setSelected(prev => prev ? { ...prev, isMember: false, memberCount: Math.max(0, prev.memberCount - 1) } : prev);
       alert('Left community successfully.');
       setSelected(null); // Return to list view
-    } catch (err: any) { 
+    } catch (err: any) {
       alert(err.message || 'Failed to leave community');
     } finally { setActionLoading(null); }
   };
@@ -299,20 +299,20 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
     const adminMember = selected.members?.find(m => m.id === selected.created_by || m.role === 'admin');
     const currentUserId = currentUser?.id || (currentUser as any)?._id;
     const isAdmin = currentUser && (
-      currentUserId === selected.created_by || 
-      (adminMember && currentUser.name === adminMember.name) || 
+      currentUserId === selected.created_by ||
+      (adminMember && currentUser.name === adminMember.name) ||
       selected.isMember // Fallback: give them the power if they are a member and we couldn't verify admin status strictly, so they can test the UI.
     );
 
     return (
-      <div className="flex-1 bg-muted/10 overflow-hidden h-full flex justify-center animate-in fade-in duration-500">
-        <div className="w-full max-w-7xl flex gap-6 md:gap-8 h-full pt-6 lg:pt-8 px-6 lg:px-8">
-          
+      <div className="flex-1 bg-muted/10 overflow-y-auto h-full flex justify-center p-6 lg:p-8 animate-in fade-in duration-500">
+        <div className="w-full max-w-7xl flex gap-6 md:gap-8 items-start">
+
           {/* Main Feed Column */}
           <div className="flex-1 max-w-3xl flex flex-col space-y-6 h-full relative overflow-y-auto custom-scrollbar pr-2 pb-6">
             <div className="flex items-center justify-between mb-2 shrink-0">
               <h2 className="text-xl font-bold text-foreground">Community Feed</h2>
-              <button 
+              <button
                 onClick={() => setSelected(null)}
                 className="text-muted-foreground hover:text-foreground text-sm font-medium flex items-center gap-2"
               >
@@ -320,103 +320,102 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
               </button>
             </div>
 
+            {/* Post Composer */}
+            {selected.isMember ? (
+              <div className="bg-card border border-border/60 rounded-[28px] p-5 shadow-sm">
+                <textarea
+                  value={postInput}
+                  onChange={e => setPostInput(e.target.value)}
+                  placeholder="Share something with the community..."
+                  className="w-full bg-muted/30 border border-border/50 rounded-2xl p-4 focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground resize-none min-h-[100px] text-[15px]"
+                />
+
+                {/* Attached Paper Preview */}
+                {attachedPaperIds.length > 0 && (
+                  <div className="mt-4 flex flex-col gap-2">
+                    {attachedPaperIds.map(id => (
+                      <div key={id} className="flex items-center gap-4 p-3 bg-primary/5 border border-primary/10 rounded-xl">
+                        <BookOpen className="w-4 h-4 text-primary" />
+                        <span className="text-sm font-medium flex-1 truncate">
+                          {localPapers.find(p => p.id === id)?.title}
+                        </span>
+                        <button onClick={() => setAttachedPaperIds(prev => prev.filter(pid => pid !== id))} className="text-muted-foreground hover:text-red-500">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between mt-4">
+                  <div className="flex items-center gap-2 relative">
+                    <button onClick={() => setShowPaperPicker(!showPaperPicker)} className="p-2.5 text-muted-foreground hover:bg-muted rounded-full transition-colors relative">
+                      <Paperclip className="w-5 h-5" />
+                    </button>
+
+                    {/* Paper Picker Dropdown */}
+                    {showPaperPicker && (
+                      <div className="absolute top-full left-0 mt-2 w-64 bg-card border border-border rounded-2xl shadow-xl z-20 max-h-64 overflow-y-auto">
+                        {localPapers.map(p => (
+                          <div key={p.id} onClick={() => { setAttachedPaperIds(prev => prev.includes(p.id) ? prev.filter(id => id !== p.id) : [...prev, p.id]); }} className="p-3 hover:bg-muted cursor-pointer border-b border-border/50 last:border-0 flex items-center justify-between">
+                            <div className="min-w-0 pr-2">
+                              <p className="text-sm font-bold truncate">{p.title}</p>
+                              <p className="text-[10px] text-muted-foreground">{p.authors[0]} · {p.year}</p>
+                            </div>
+                            {attachedPaperIds.includes(p.id) && <div className="w-2 h-2 rounded-full bg-primary shrink-0"></div>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    onClick={handlePost}
+                    disabled={!postInput.trim() || sending}
+                    className="px-6 py-2 bg-primary text-primary-foreground rounded-full text-sm font-bold hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                    Post
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-card border border-border/60 rounded-[28px] p-8 text-center shadow-sm">
+                <Lock className="w-10 h-10 text-muted-foreground/50 mx-auto mb-4" />
+                <h4 className="text-lg font-bold text-foreground mb-2">Join to Post</h4>
+                <p className="text-muted-foreground text-sm mb-6">You must join this community to participate in discussions.</p>
+                <button onClick={() => handleJoin(selected.id)} className="px-6 py-2.5 bg-primary text-primary-foreground rounded-full font-bold text-sm">
+                  Join Community
+                </button>
+              </div>
+            )}
+
             {/* Posts Feed */}
-            <div className="space-y-5 flex-1 pb-6">
+            <div className="space-y-5 mt-8 pb-10">
               {cardLoading ? (
-                 <div className="flex justify-center py-20 bg-card rounded-[28px] shadow-sm border border-border/60">
-                   <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                 </div>
+                <div className="flex justify-center py-20 bg-card rounded-[28px] shadow-sm border border-border/60">
+                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                </div>
               ) : (selected.posts || []).length === 0 ? (
-                 <div className="text-center py-20 bg-card rounded-[28px] shadow-sm">
-                    <p className="text-muted-foreground">No posts yet. Be the first to share an idea!</p>
-                 </div>
+                <div className="text-center py-20 bg-card rounded-[28px] shadow-sm">
+                  <p className="text-muted-foreground">No posts yet. Be the first to share an idea!</p>
+                </div>
               ) : (
                 (selected.posts || []).map(post => (
-                  <PostCard 
-                    key={post.id} 
-                    post={post} 
-                    currentUser={currentUser} 
-                    onDelete={handleDeletePost} 
+                  <PostCard
+                    key={post.id}
+                    post={post}
+                    currentUser={currentUser}
+                    onDelete={handleDeletePost}
                     onPaperSelect={onPaperSelect}
                   />
                 ))
-              )}
-            </div>
-
-            {/* Post Composer - Floating at bottom */}
-            <div className="sticky bottom-6 w-full z-20 mt-auto">
-              {selected.isMember ? (
-                <div className="bg-card/95 backdrop-blur-xl border-4 border-black dark:border-white rounded-[32px] p-5 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)]">
-                  <textarea
-                    value={postInput}
-                    onChange={e => setPostInput(e.target.value)}
-                    placeholder="Share something with the community..."
-                    className="w-full bg-background border-2 border-black dark:border-white rounded-2xl p-4 focus:outline-none focus:ring-2 focus:ring-black dark:focus:ring-white text-foreground resize-none min-h-[80px] text-[15px] font-medium"
-                  />
-                  
-                  {/* Attached Paper Preview */}
-                  {attachedPaperIds.length > 0 && (
-                    <div className="mt-4 flex flex-col gap-2">
-                      {attachedPaperIds.map(id => (
-                        <div key={id} className="flex items-center gap-4 p-3 bg-primary/5 border border-primary/10 rounded-xl">
-                          <BookOpen className="w-4 h-4 text-primary" />
-                          <span className="text-sm font-medium flex-1 truncate">
-                            {localPapers.find(p => p.id === id)?.title}
-                          </span>
-                          <button onClick={() => setAttachedPaperIds(prev => prev.filter(pid => pid !== id))} className="text-muted-foreground hover:text-red-500">
-                            <X className="w-4 h-4" />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-between mt-4">
-                    <div className="flex items-center gap-2 relative">
-                      <button onClick={() => setShowPaperPicker(!showPaperPicker)} className="p-2.5 text-muted-foreground hover:bg-muted rounded-full transition-colors relative">
-                        <Paperclip className="w-5 h-5" />
-                      </button>
-                      
-                      {/* Paper Picker Dropdown */}
-                      {showPaperPicker && (
-                        <div className="absolute bottom-full left-0 mb-2 w-64 bg-card border border-border rounded-2xl shadow-xl z-30 max-h-64 overflow-y-auto">
-                          {localPapers.map(p => (
-                            <div key={p.id} onClick={() => { setAttachedPaperIds(prev => prev.includes(p.id) ? prev.filter(id => id !== p.id) : [...prev, p.id]); }} className="p-3 hover:bg-muted cursor-pointer border-b border-border/50 last:border-0 flex items-center justify-between">
-                              <div className="min-w-0 pr-2">
-                                <p className="text-sm font-bold truncate">{p.title}</p>
-                                <p className="text-[10px] text-muted-foreground">{p.authors[0]} · {p.year}</p>
-                              </div>
-                              {attachedPaperIds.includes(p.id) && <div className="w-2 h-2 rounded-full bg-primary shrink-0"></div>}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <button
-                      onClick={handlePost}
-                      disabled={!postInput.trim() || sending}
-                      className="px-6 py-2 bg-primary text-primary-foreground rounded-full text-sm font-bold hover:opacity-90 disabled:opacity-50 flex items-center gap-2"
-                    >
-                      {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
-                      Post
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-card/95 backdrop-blur-xl border-4 border-black dark:border-white rounded-[32px] p-6 text-center shadow-[0_20px_60px_-15px_rgba(0,0,0,0.1)]">
-                  <h4 className="text-[15px] font-bold text-foreground mb-2">Join to Post</h4>
-                  <p className="text-muted-foreground text-[13px] mb-4">You must join this community to participate in discussions.</p>
-                  <button onClick={() => handleJoin(selected.id)} className="px-6 py-2 bg-primary text-primary-foreground rounded-full font-bold text-xs">
-                    Join Community
-                  </button>
-                </div>
               )}
             </div>
           </div>
 
           {/* Right Sidebar Column */}
           <div className="w-[320px] xl:w-[350px] shrink-0 space-y-6 hidden lg:block h-full overflow-y-auto custom-scrollbar pr-2 pb-6">
-            
+
             {/* About Card */}
             <div className="bg-card border border-border/60 rounded-[28px] overflow-hidden shadow-sm">
               <div className="h-28 bg-gradient-to-r from-blue-900 to-slate-900 relative">
@@ -432,14 +431,14 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-[17px] font-bold text-foreground">About {selected.name}</h3>
                   {isAdmin && (
-                    <button 
+                    <button
                       onClick={() => {
                         if (isEditingCard) {
                           handleSaveCard();
                         } else {
                           setIsEditingCard(true);
                         }
-                      }} 
+                      }}
                       className="text-xs font-bold text-muted-foreground hover:text-primary transition-colors"
                     >
                       {isEditingCard ? 'Save' : 'Edit'}
@@ -447,12 +446,12 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
                   )}
                 </div>
                 <p className="text-[13px] text-muted-foreground mb-6 line-clamp-3 leading-relaxed">{selected.description || `Collaborate with fellow researchers in ${selected.subject}.`}</p>
-                
+
                 {isEditingCard ? (
                   <div className="space-y-3 mb-6">
                     <div className="text-xs text-muted-foreground font-medium">Cover Photo</div>
-                    <input 
-                      type="file" 
+                    <input
+                      type="file"
                       accept="image/*"
                       onChange={(e) => {
                         const file = e.target.files?.[0];
@@ -465,17 +464,17 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
                       className="w-full text-xs text-foreground bg-muted/50 border border-border/50 rounded-lg px-3 py-2 focus:outline-none focus:border-primary file:mr-4 file:py-1 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
                     />
                     <div className="text-xs text-muted-foreground font-medium mt-3">Community Link</div>
-                    <input 
-                      type="text" 
-                      placeholder="https://..." 
+                    <input
+                      type="text"
+                      placeholder="https://..."
                       value={cardLink}
                       onChange={e => setCardLink(e.target.value)}
                       className="w-full text-xs bg-muted/50 border border-border/50 rounded-lg px-3 py-2 focus:outline-none focus:border-primary"
                     />
                     <div className="text-xs text-muted-foreground font-medium mt-3">Guidelines Link</div>
-                    <input 
-                      type="text" 
-                      placeholder="https://..." 
+                    <input
+                      type="text"
+                      placeholder="https://..."
                       value={guidelinesLink}
                       onChange={e => setGuidelinesLink(e.target.value)}
                       className="w-full text-xs bg-muted/50 border border-border/50 rounded-lg px-3 py-2 focus:outline-none focus:border-primary"
@@ -509,7 +508,7 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
 
                 <div className="border-t border-border/50 pt-5 mt-5 flex flex-col gap-2">
                   {selected.isMember && (
-                    <button 
+                    <button
                       onClick={() => handleLeave(selected.id)}
                       className="text-[13px] font-medium text-red-500 hover:bg-red-500/10 px-3 py-2 rounded-lg text-left transition-colors flex items-center gap-3"
                     >
@@ -517,7 +516,7 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
                     </button>
                   )}
                   {isAdmin && (
-                    <button 
+                    <button
                       onClick={() => handleDeleteCommunity(selected.id)}
                       className="text-[13px] font-medium text-red-500 hover:bg-red-500/10 px-3 py-2 rounded-lg text-left transition-colors flex items-center gap-3"
                     >
@@ -532,7 +531,7 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
             <div className="bg-card border border-border/60 rounded-[28px] p-6 shadow-sm">
               <div className="flex items-center justify-between mb-5">
                 <h3 className="text-[17px] font-bold text-foreground">Members</h3>
-                <button 
+                <button
                   onClick={() => {
                     const id = selected.id || selected._id;
                     const url = `${window.location.origin}?c=${id}`;
@@ -549,11 +548,11 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
                   <div key={m.id} className="flex items-center justify-between group">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-bold shadow-sm overflow-hidden shrink-0">
-                         {m.avatar_url ? <img src={m.avatar_url} alt={m.name} className="w-full h-full object-cover" /> : m.avatar_initials}
+                        {m.avatar_url ? <img src={m.avatar_url} alt={m.name} className="w-full h-full object-cover" /> : m.avatar_initials}
                       </div>
                       <div className="min-w-0">
                         <p className="text-[13px] font-bold text-foreground leading-none flex items-center gap-2 truncate">
-                          {m.name} 
+                          {m.name}
                           {(m.id === selected.created_by || m.role === 'admin' || (adminMember && m.name === adminMember.name)) && (
                             <Badge variant="secondary" className="text-[9px] px-1.5 py-0 bg-primary/10 text-primary border-0 shrink-0">Admin</Badge>
                           )}
@@ -564,7 +563,7 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
                     {isAdmin && m.id !== selected.created_by && m.id !== currentUserId && (
                       <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-all shrink-0">
                         {m.role !== 'admin' ? (
-                          <button 
+                          <button
                             onClick={() => handleUpdateRole(m.id, 'admin')}
                             className="p-1.5 text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10 rounded-md text-[9px] font-bold uppercase tracking-wider"
                             title="Promote to admin"
@@ -572,7 +571,7 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
                             Promote
                           </button>
                         ) : (
-                          <button 
+                          <button
                             onClick={() => handleUpdateRole(m.id, 'member')}
                             className="p-1.5 text-muted-foreground hover:text-orange-500 hover:bg-orange-500/10 rounded-md text-[9px] font-bold uppercase tracking-wider"
                             title="Demote to member"
@@ -580,7 +579,7 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
                             Demote
                           </button>
                         )}
-                        <button 
+                        <button
                           onClick={() => handleRemoveMember(m.id)}
                           className="p-1.5 text-muted-foreground hover:text-red-500 hover:bg-red-500/10 rounded-md transition-all"
                           title="Remove member"
@@ -617,13 +616,13 @@ export function CommunityView({ onPaperSelect }: CommunityViewProps) {
                         </div>
                       </div>
                       <div className="flex items-center gap-2">
-                        <button 
+                        <button
                           onClick={() => handleHandleRequest(req.id || req._id, 'accepted')}
                           className="flex-1 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-600 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-colors"
                         >
                           Approve
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleHandleRequest(req.id || req._id, 'rejected')}
                           className="flex-1 py-1.5 bg-red-500/10 hover:bg-red-500/20 text-red-600 rounded-lg text-[11px] font-bold uppercase tracking-wider transition-colors"
                         >
@@ -871,23 +870,23 @@ function PostCard({ post, currentUser, onDelete, onPaperSelect }: { post: Commun
           </div>
         </div>
         <div className="relative">
-          <button 
-            onClick={() => setShowMenu(!showMenu)} 
+          <button
+            onClick={() => setShowMenu(!showMenu)}
             className="text-muted-foreground hover:bg-muted p-2 rounded-full transition-colors"
           >
             <MoreHorizontal className="w-5 h-5" />
           </button>
-          
+
           {showMenu && (
             <>
               <div className="fixed inset-0 z-0" onClick={() => setShowMenu(false)}></div>
               <div className="absolute right-0 top-full mt-1 z-10 flex flex-col gap-1 w-32 shadow-xl">
                 {(currentUser?.id === post.user_id || currentUser?.name === post.author?.name) && (
-                  <button 
+                  <button
                     onClick={() => {
                       onDelete(post.id);
                       setShowMenu(false);
-                    }} 
+                    }}
                     className="bg-red-500 text-white px-4 py-2.5 rounded-lg text-sm font-bold shadow-lg hover:bg-red-600 text-left transition-colors"
                   >
                     Delete
@@ -906,14 +905,14 @@ function PostCard({ post, currentUser, onDelete, onPaperSelect }: { post: Commun
       {attachedPapers.length > 0 && (
         <div className="space-y-3">
           {attachedPapers.map((paper: any) => (
-            <div 
+            <div
               key={paper.id}
               onClick={() => onPaperSelect?.(paper.id)}
               className="border border-border/60 rounded-2xl overflow-hidden cursor-pointer hover:bg-muted/30 transition-colors flex max-sm:flex-col"
             >
               <div className="w-full sm:w-32 h-32 sm:h-auto bg-gradient-to-br from-slate-800 to-slate-700 relative overflow-hidden shrink-0 flex items-center justify-center">
-                 <div className="absolute inset-0 opacity-40 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
-                 <BookOpen className="w-8 h-8 text-white/50 relative z-10" />
+                <div className="absolute inset-0 opacity-40 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white via-transparent to-transparent"></div>
+                <BookOpen className="w-8 h-8 text-white/50 relative z-10" />
               </div>
               <div className="p-4 flex-1 min-w-0 flex flex-col justify-center">
                 <h5 className="text-[15px] font-bold text-foreground mb-1.5 truncate">{paper.title}</h5>
@@ -930,7 +929,7 @@ function PostCard({ post, currentUser, onDelete, onPaperSelect }: { post: Commun
       {/* Actions */}
       {attachedPapers.length > 0 && (
         <div className="flex items-center justify-end border-t border-border/40 pt-4 px-2 mt-4">
-          <button 
+          <button
             disabled={isSaved}
             onClick={() => {
               setIsSaved(true);
@@ -940,13 +939,12 @@ function PostCard({ post, currentUser, onDelete, onPaperSelect }: { post: Commun
                   setIsSaved(false);
                 });
             }}
-            className={`flex items-center gap-2 text-[13px] font-medium px-4 py-2 rounded-full transition-colors ${
-              isSaved 
-                ? 'text-pink-600 bg-pink-100 cursor-default' 
+            className={`flex items-center gap-2 text-[13px] font-medium px-4 py-2 rounded-full transition-colors ${isSaved
+                ? 'text-pink-600 bg-pink-100 cursor-default'
                 : 'text-pink-500 bg-pink-500/5 hover:bg-pink-500/10'
-            }`}
+              }`}
           >
-            <Heart className={`w-4 h-4 ${isSaved ? 'fill-pink-600' : 'fill-pink-500/20'}`} /> 
+            <Heart className={`w-4 h-4 ${isSaved ? 'fill-pink-600' : 'fill-pink-500/20'}`} />
             <span className="hidden sm:inline">{isSaved ? 'Saved' : 'Add to Library'}</span>
           </button>
         </div>
