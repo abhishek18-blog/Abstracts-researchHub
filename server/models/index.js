@@ -22,6 +22,9 @@ const toJSONTransform = (doc, ret) => {
   ret.id = ret._id;   // rename _id → id (cleaner for frontend)
   delete ret._id;     // remove the original _id
   delete ret.__v;     // remove MongoDB's internal version key
+  delete ret.password; // [SECURITY - N-H1]: Never send the password hash to the client.
+                       // Even though bcrypt hashes can't be reversed easily, sending them
+                       // enables offline brute-force attacks and violates least-privilege.
   return ret;
 };
 
@@ -48,7 +51,9 @@ const userSchema = new mongoose.Schema({
   _id: stringId,                                       // unique ID for the user
   name: { type: String, required: true },              // full name (required)
   email: { type: String, required: true, unique: true }, // must be unique — no two accounts with same email
-  password: { type: String, required: true },          // hashed password (never stored as plain text)
+  // [SECURITY - N-L5]: password is NOT required because Google OAuth users authenticate via
+  // Firebase and never set a password in our DB. required:true would cause Mongoose errors for them.
+  password: { type: String, required: false, default: '' }, // hashed password (never stored as plain text)
   role: { type: String, default: 'Student' },          // user role: 'Student' or 'Researcher'
   avatar_initials: { type: String },                   // e.g. "AB" — shown as avatar fallback
   avatar_url: { type: String },                        // profile picture URL (from Google or upload)
@@ -153,22 +158,7 @@ const messageSchema = new mongoose.Schema({
 
 const Message = mongoose.model('Message', messageSchema);
 
-// ─────────────────────────────────────────────
-// 📎 UPLOAD — PDF files uploaded by users
-// ─────────────────────────────────────────────
-// When users upload their own PDF files, we store metadata here.
-// The actual file content is stored separately (e.g. in memory/cloud).
-const uploadSchema = new mongoose.Schema({
-  _id: stringId,
-  user_id: { type: String, ref: 'User', required: true },  // who uploaded it
-  filename: { type: String, required: true },               // the stored filename (could be renamed)
-  original_name: { type: String, required: true },          // original file name from user's device
-  mime_type: { type: String },                              // file type e.g. "application/pdf"
-  size_bytes: { type: Number },                             // file size in bytes
-  paper_id: { type: String, ref: 'Paper' }                 // optionally linked to an existing paper
-}, schemaOptions);
-
-const Upload = mongoose.model('Upload', uploadSchema);
+// PDF uploads have been completely removed
 
 // ─────────────────────────────────────────────
 // 👥 COMMUNITY — Research discussion groups
@@ -261,5 +251,5 @@ const AbstractHighlight = mongoose.model('AbstractHighlight', abstractHighlightS
 // e.g. import { User, Paper } from '../models/index.js'
 export {
   User, Paper, Project, SavedPaper, ReadingProgress,
-  Conversation, Message, Upload, Community, CommunityMember, CommunityPost, JoinRequest, AbstractHighlight
+  Conversation, Message, Community, CommunityMember, CommunityPost, JoinRequest, AbstractHighlight
 };

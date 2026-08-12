@@ -1,20 +1,12 @@
 // ============================================================
 // controllers/userController.js — User Profile Management
 // ============================================================
-// This file handles operations on the currently logged-in user's account:
-//   1. getUserProfile   → Read user data + activity stats
-//   2. updateUserProfile → Edit name, email, avatar, interests, etc.
-//   3. uploadAvatar      → Upload a profile picture
-//   4. addPassword       → Set a password for Google-auth users
-//   5. deleteAccount     → Delete the user and all their data
-//
-// NOTE: All these functions are protected routes.
-// The authMiddleware runs BEFORE these and sets req.userId from the JWT.
-// So req.userId always holds the ID of the currently logged-in user.
-// ============================================================
 
+// [SECURITY - N-L1]: All imports must be at the top of the file.
+// Previously bcrypt was imported at line ~137, mid-file, which is confusing
+// and can hide dependencies. ES modules hoist imports but it's still bad practice.
+import bcrypt from 'bcryptjs';
 import { User, SavedPaper, Project, ReadingProgress } from '../models/index.js';
-
 
 // ─────────────────────────────────────────────
 // 👤 GET USER PROFILE — Fetch profile + stats
@@ -75,7 +67,16 @@ export const updateUserProfile = async (req, res) => {
     const updates = {};
     if (name !== undefined) updates.name = name;
     if (email !== undefined) updates.email = email;
-    if (role !== undefined) updates.role = role;
+    
+    // [SECURITY - N-C3]: Privilege Escalation Prevention.
+    // Prevent normal users from upgrading themselves to 'admin'.
+    if (role !== undefined) {
+      if (!['Student', 'Researcher'].includes(role)) {
+        return res.status(403).json({ success: false, error: 'Invalid role specified' });
+      }
+      updates.role = role;
+    }
+    
     if (avatar_initials !== undefined) updates.avatar_initials = avatar_initials;
     if (avatar_url !== undefined) updates.avatar_url = avatar_url;
     
@@ -111,6 +112,14 @@ export const uploadAvatar = async (req, res) => {
       return res.status(400).json({ success: false, error: 'No file uploaded' });
     }
 
+    // [SECURITY - H4]: Server-side MIME type validation.
+    // Multer config can be bypassed by spoofing Content-Type headers.
+    // We validate the actual mimetype here as a second layer of defense.
+    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowedMimeTypes.includes(req.file.mimetype)) {
+      return res.status(400).json({ success: false, error: 'Only JPEG, PNG, WebP, and GIF images are allowed' });
+    }
+
     // Convert the image binary (buffer) into a Base64-encoded string.
     // Base64 lets us store and send images as plain text inside JSON.
     // The resulting string looks like: "data:image/png;base64,iVBORw0KGgo..."
@@ -127,14 +136,14 @@ export const uploadAvatar = async (req, res) => {
     res.json({ success: true, data: user.toJSON() });
   } catch (error) {
     console.error('Error uploading avatar:', error);
-    res.status(500).json({ success: false, error: `Upload failed: ${error.message}` });
+    // [SECURITY - N-M1]: Don't expose raw error message in production
+    const isDev = process.env.NODE_ENV !== 'production';
+    res.status(500).json({ success: false, error: isDev ? `Upload failed: ${error.message}` : 'Upload failed' });
   }
 };
 
-// bcrypt is imported here (and not at the top) because only addPassword uses it in this file.
-// In Node.js/ES modules, the import position doesn't matter for functionality —
-// but ideally all imports should be at the top of the file for clarity.
-import bcrypt from 'bcryptjs';
+
+// bcrypt is already imported at the top of this file.
 
 
 // ─────────────────────────────────────────────

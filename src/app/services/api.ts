@@ -370,8 +370,12 @@ export interface ExternalPaper {
 }
 
 export const searchApi = {
-  searchPapers: (q: string, limit = 10, offset = 0) =>
-    request<ExternalPaper[]>(`/search/papers?q=${encodeURIComponent(q)}&limit=${limit}&offset=${offset}`),
+  searchPapers: (q: string, limit = 10, offset = 0, year?: string, sort?: string) => {
+    let url = `/search/papers?q=${encodeURIComponent(q)}&limit=${limit}&offset=${offset}`;
+    if (year) url += `&year=${encodeURIComponent(year)}`;
+    if (sort) url += `&sort=${encodeURIComponent(sort)}`;
+    return request<ExternalPaper[]>(url);
+  },
   importPaper: (paper: Partial<ExternalPaper>) =>
     request<Paper>('/search/papers/import', { method: 'POST', body: JSON.stringify(paper) }),
 };

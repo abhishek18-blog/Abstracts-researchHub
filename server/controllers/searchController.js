@@ -1,12 +1,19 @@
 import { Paper, SavedPaper } from '../models/index.js';
+import dotenv from 'dotenv';
+dotenv.config();
+
+// [SECURITY - N-C2]: Escape regex metacharacters to prevent ReDoS attacks
+function escapeRegex(str) {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 // ─── Simple In-Memory Cache ──────────────────────────────────────
 const searchCache = new Map();
 const CACHE_TTL = 1000 * 60 * 60; // 1 hour
 const MAX_CACHE_SIZE = 1000;
 
-function getCacheKey(q, limit, offset) {
-  return `${q.trim().toLowerCase()}_${limit}_${offset}`;
+function getCacheKey(q, limit, offset, year, sort) {
+  return `${q.trim().toLowerCase()}_${limit}_${offset}_${year || ''}_${sort || ''}`;
 }
 
 // ─── Helper: fetch with retry for rate-limited APIs ──────────────
@@ -24,19 +31,33 @@ async function fetchWithRetry(url, options = {}, retries = 2, delayMs = 2000) {
 }
 
 // ─── Semantic Scholar search ─────────────────────────────────────
-async function searchSemanticScholar(q, limit, offset) {
-  const fields = 'paperId,title,abstract,year,citationCount,authors,externalIds,url,openAccessPdf';
-  const apiUrl = `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(q)}&limit=${limit}&offset=${offset}&fields=${fields}`;
+async function searchSemanticScholar(q, limit, offset, useApiKey = true, options = {}) {
+  const fields = 'paperId,title,abstract,year,publicationDate,citationCount,authors,externalIds,url,openAccessPdf';
+  let apiUrl = `https://api.semanticscholar.org/graph/v1/paper/search?query=${encodeURIComponent(q)}&limit=${limit}&offset=${offset}&fields=${fields}`;
 
-  const response = await fetchWithRetry(apiUrl, {
-    headers: { 'Accept': 'application/json' },
-  });
+  if (options.year) {
+    apiUrl += `&year=${encodeURIComponent(options.year)}`;
+  }
+  if (options.sort) {
+    apiUrl += `&sort=${encodeURIComponent(options.sort)}`;
+  }
 
-  if (!response.ok) {
-    if (response.status === 429) {
+  const headers = { 'Accept': 'application/json' };
+  const apiKey = process.env.SEMANTIC_SCHOLAR_API_KEY || process.env.S2_API_KEY;
+
+  if (useApiKey && apiKey) {
+    headers['x-api-key'] = apiKey;
+  }
+
+  const response = await fetchWithRetry(apiUrl, { headers }, 1, 1000);
+
+  if (!response || !response.ok) {
+    if (response && response.status === 429) {
+      console.log(`⚠️ Semantic Scholar (${useApiKey ? 'Official' : 'Public'}) rate limited (429)`);
       return null; // signal to try fallback
     }
-    throw new Error(`Semantic Scholar returned ${response.status}`);
+    const status = response ? response.status : 'Network error';
+    throw new Error(`Semantic Scholar (${useApiKey ? 'Official' : 'Public'}) returned ${status}`);
   }
 
   const data = await response.json();
@@ -51,15 +72,24 @@ async function searchSemanticScholar(q, limit, offset) {
       url: paper.url || null,
       pdfUrl: paper.openAccessPdf?.url || null,
       doi: paper.externalIds?.DOI || null,
-      source: 'Semantic Scholar',
+      source: (useApiKey && apiKey) ? 'Semantic Scholar (Official)' : 'Semantic Scholar',
     })),
     total: data.total || 0,
   };
 }
 
 // ─── OpenAlex fallback search (completely free, no rate limit) ───
-async function searchOpenAlex(q, limit, offset) {
-  const apiUrl = `https://api.openalex.org/works?filter=title_and_abstract.search:${encodeURIComponent(q)}&per_page=${limit}&page=${Math.floor(offset / limit) + 1}&select=id,title,authorships,publication_year,cited_by_count,open_access,doi,primary_location,abstract_inverted_index&sort=relevance_score:desc`;
+async function searchOpenAlex(q, limit, offset, options = {}) {
+  let apiUrl = `https://api.openalex.org/works?filter=title_and_abstract.search:${encodeURIComponent(q)}`;
+
+  if (options.year) {
+    const cleanYear = options.year.replace('-', '').trim();
+    if (cleanYear && !isNaN(cleanYear)) {
+      apiUrl += `,publication_year:>${Number(cleanYear) - 1}`;
+    }
+  }
+
+  apiUrl += `&per_page=${limit}&page=${Math.floor(offset / limit) + 1}&select=id,title,authorships,publication_year,cited_by_count,open_access,doi,primary_location,abstract_inverted_index&sort=publication_date:desc`;
 
   const response = await fetch(apiUrl, {
     headers: {
@@ -154,15 +184,15 @@ async function rescueAbstract(paper) {
   return paper;
 }
 
-// GET /api/search/papers?q=query — search real papers (with fallback)
+// GET /api/search/papers?q=query — search real papers (with 3-tier fallback)
 export async function searchExternalPapers(req, res) {
   try {
-    const { q, limit = 10, offset = 0 } = req.query;
+    const { q, limit = 10, offset = 0, year, sort } = req.query;
     if (!q || !q.trim()) {
       return res.status(400).json({ success: false, error: 'Search query (q) is required' });
     }
 
-    const cacheKey = getCacheKey(q, limit, offset);
+    const cacheKey = getCacheKey(q, limit, offset, year, sort);
     const cached = searchCache.get(cacheKey);
     
     if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
@@ -178,26 +208,46 @@ export async function searchExternalPapers(req, res) {
 
     let result = null;
     let source = '';
+    const options = { year, sort };
 
-    // Try Semantic Scholar first
-    try {
-      result = await searchSemanticScholar(q, Number(limit), Number(offset));
-      source = 'Semantic Scholar';
-    } catch (err) {
-      console.log('⚠️ Semantic Scholar failed:', err.message);
+    // Tier 1: Try Semantic Scholar Official API (with x-api-key)
+    const apiKey = process.env.SEMANTIC_SCHOLAR_API_KEY || process.env.S2_API_KEY;
+    if (apiKey) {
+      try {
+        console.log('🔍 [Tier 1] Querying Semantic Scholar Official API (with API Key)...');
+        result = await searchSemanticScholar(q, Number(limit), Number(offset), true, options);
+        if (result) {
+          source = 'Semantic Scholar (Official)';
+        }
+      } catch (err) {
+        console.log('⚠️ [Tier 1] Semantic Scholar Official failed:', err.message);
+      }
     }
 
-    // Fallback to OpenAlex if Semantic Scholar failed or rate-limited
+    // Tier 2: Try Semantic Scholar Public API (No API Key)
     if (!result) {
       try {
-        console.log('🔄 Falling back to OpenAlex...');
-        result = await searchOpenAlex(q, Number(limit), Number(offset));
+        console.log('🔄 [Tier 2] Falling back to Semantic Scholar Public (no API key)...');
+        result = await searchSemanticScholar(q, Number(limit), Number(offset), false, options);
+        if (result) {
+          source = 'Semantic Scholar';
+        }
+      } catch (err) {
+        console.log('⚠️ [Tier 2] Semantic Scholar Public failed:', err.message);
+      }
+    }
+
+    // Tier 3: Try OpenAlex
+    if (!result) {
+      try {
+        console.log('🔄 [Tier 3] Falling back to OpenAlex...');
+        result = await searchOpenAlex(q, Number(limit), Number(offset), options);
         source = 'OpenAlex';
       } catch (err) {
-        console.error('❌ OpenAlex also failed:', err.message);
+        console.error('❌ [Tier 3] OpenAlex also failed:', err.message);
         return res.status(503).json({
           success: false,
-          error: 'Both paper search services are unavailable. Please try again in a moment.',
+          error: 'All paper search services are unavailable. Please try again in a moment.',
         });
       }
     }
@@ -238,7 +288,7 @@ export async function importExternalPaper(req, res) {
       return res.status(400).json({ success: false, error: 'Paper title is required' });
     }
 
-    const orConditions = [{ title: new RegExp('^' + title + '$', 'i') }];
+    const orConditions = [{ title: new RegExp('^' + escapeRegex(title) + '$', 'i') }];
     if (doi) orConditions.push({ doi });
     if (externalId) orConditions.push({ external_id: externalId });
 

@@ -23,7 +23,8 @@ import admin from '../firebaseAdmin.js';
 // JWT_SECRET is a private key used to sign tokens.
 // Never share this! Tokens signed with this key prove the user is authenticated.
 // We read it from .env so it stays out of the source code.
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_key';
+// [SECURITY - C2]: No fallback — if JWT_SECRET is missing the server already exited in middleware/index.js
+const JWT_SECRET = process.env.JWT_SECRET;
 
 
 // ─────────────────────────────────────────────
@@ -35,7 +36,25 @@ export const register = async (req, res) => {
   try {
     // Step 1: Extract the fields the user sent from the request body
     const { name, email, password, role, avatar_initials } = req.body;
-    
+
+    // [SECURITY - H3]: Input Validation
+    // Validate all required fields before touching the database.
+    if (!name || !email || !password) {
+      return res.status(400).json({ success: false, error: 'name, email, and password are required' });
+    }
+    if (name.length > 100) {
+      return res.status(400).json({ success: false, error: 'Name must be 100 characters or fewer' });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ success: false, error: 'Invalid email format' });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ success: false, error: 'Password must be at least 8 characters' });
+    }
+    // [SECURITY - H3]: Role Allowlist — never trust the client to set their own role
+    const ALLOWED_ROLES = ['Student', 'Researcher', 'Professor'];
+    const safeRole = ALLOWED_ROLES.includes(role) ? role : 'Student';
+
     // Step 2: Check if an account with this email already exists
     // We don't want two users with the same email
     const existing = await User.findOne({ email });
@@ -53,7 +72,7 @@ export const register = async (req, res) => {
     const user = new User({
       name, email,
       password: hashedPassword,
-      role: role || 'Student', // default to Student if no role given
+      role: safeRole,
       // Generate initials from the name (e.g. "Abhishek Kumar" → "AB")
       avatar_initials: avatar_initials || (name ? name.substring(0, 2).toUpperCase() : 'U')
     });
@@ -73,6 +92,7 @@ export const register = async (req, res) => {
     res.status(500).json({ success: false, error: 'Registration failed' });
   }
 };
+
 
 
 // ─────────────────────────────────────────────
@@ -99,7 +119,8 @@ export const login = async (req, res) => {
     // Some users originally signed up via Firebase Auth (not our backend).
     // Their passwords may be stored in Firebase but not in our DB yet.
     // So if bcrypt check fails, we try verifying against Firebase's REST API.
-    const firebaseApiKey = process.env.VITE_FIREBASE_API_KEY || process.env.FIREBASE_API_KEY || "AIzaSyAqkzkEdNwJamIWv3UM0bw9zGD4wRqI3hc";
+    // [SECURITY - C1]: Key is read from .env only — no hardcoded fallback.
+    const firebaseApiKey = process.env.FIREBASE_API_KEY || process.env.VITE_FIREBASE_API_KEY;
 
     if (!isMatch && firebaseApiKey) {
       try {
@@ -119,6 +140,8 @@ export const login = async (req, res) => {
       } catch (e) {
         // If Firebase is down or returns an error, just continue — don't crash
       }
+    } else if (!isMatch && !firebaseApiKey) {
+      console.warn('⚠️ FIREBASE_API_KEY not set — Firebase password fallback is disabled');
     }
 
     // Step 4: If neither our DB nor Firebase matched the password, reject the login
@@ -167,14 +190,14 @@ export const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
 
-    // Step 1: Verify the email exists in our own database first
+    // [SECURITY - M3]: Anti-Enumeration Pattern
+    // Always return the same success response regardless of whether the email exists.
+    // This prevents attackers from probing which emails are registered in our system.
+    // We still do the real work internally — we just don't reveal the outcome.
     const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ success: false, error: 'User not found in our records' });
-    }
 
-    // Step 2: Check if this user exists in Firebase (they may only exist in MongoDB)
-    if (admin && admin.apps.length) {
+    if (user && admin && admin.apps.length) {
+      // User exists — ensure they're in Firebase so reset email can be sent
       try {
         await admin.auth().getUserByEmail(email);
         // If no error thrown, user exists in Firebase — nothing extra needed
@@ -189,8 +212,8 @@ export const forgotPassword = async (req, res) => {
       }
     }
 
-    // Step 3: Tell the frontend it's ready to trigger Firebase's sendPasswordResetEmail()
-    res.json({ success: true, message: 'Ready for Firebase reset' });
+    // Always return success — don't reveal if the email was found or not
+    res.json({ success: true, message: 'If this email is registered, a reset link will be sent.' });
   } catch (error) {
     console.error('Forgot password error:', error);
     res.status(500).json({ success: false, error: 'Failed to process forgot password' });

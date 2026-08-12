@@ -20,19 +20,26 @@ export function ForYouView({ userInterests, onGoToSettings }: ForYouViewProps) {
     setFetched(true);
     setFeeds(userInterests.map(interest => ({ interest, papers: [], loading: true, error: false })));
 
-    // Fire all requests in parallel
-    userInterests.forEach(async (interest, idx) => {
-      try {
-        const res = await searchApi.searchPapers(interest, 6, 0);
-        setFeeds(prev => prev.map((f, i) =>
-          i === idx ? { ...f, papers: res.data, loading: false } : f
-        ));
-      } catch {
-        setFeeds(prev => prev.map((f, i) =>
-          i === idx ? { ...f, loading: false, error: true } : f
-        ));
+    // Fetch interests sequentially with 1s delay to respect 1 req/sec Semantic Scholar official API key limit
+    (async () => {
+      for (let idx = 0; idx < userInterests.length; idx++) {
+        const interest = userInterests[idx];
+        try {
+          // Request recent papers (2024-) sorted by publication date
+          const res = await searchApi.searchPapers(interest, 6, 0, '2024-', 'publicationDate:desc');
+          setFeeds(prev => prev.map((f, i) =>
+            i === idx ? { ...f, papers: res.data, loading: false } : f
+          ));
+        } catch {
+          setFeeds(prev => prev.map((f, i) =>
+            i === idx ? { ...f, loading: false, error: true } : f
+          ));
+        }
+        if (idx < userInterests.length - 1) {
+          await new Promise(r => setTimeout(r, 1000));
+        }
       }
-    });
+    })();
   }, [userInterests]);
 
   useEffect(() => {
