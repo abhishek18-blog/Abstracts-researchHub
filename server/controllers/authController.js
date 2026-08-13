@@ -26,6 +26,19 @@ import admin from '../firebaseAdmin.js';
 // [SECURITY - C2]: No fallback — if JWT_SECRET is missing the server already exited in middleware/index.js
 const JWT_SECRET = process.env.JWT_SECRET;
 
+// [SECURITY - MED-01]: Helper to set HttpOnly Cookie for XSS mitigation
+// Setting HttpOnly: true ensures browser scripts cannot access the token via `document.cookie`,
+// completely mitigating XSS-based JWT token theft attacks.
+const COOKIE_OPTIONS = {
+  httpOnly: true, // Prevents XSS script access
+  secure: process.env.NODE_ENV === 'production', // Requires HTTPS in production
+  sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+  maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+};
+
+const setAuthCookie = (res, token) => {
+  res.cookie('token', token, COOKIE_OPTIONS);
+};
 
 // ─────────────────────────────────────────────
 // 📝 REGISTER — Create a new account
@@ -56,16 +69,12 @@ export const register = async (req, res) => {
     const safeRole = ALLOWED_ROLES.includes(role) ? role : 'Student';
 
     // Step 2: Check if an account with this email already exists
-    // We don't want two users with the same email
     const existing = await User.findOne({ email });
     if (existing) {
       return res.status(400).json({ success: false, error: 'User already exists' });
     }
 
     // Step 3: Hash the password before saving it
-    // bcrypt.hash() scrambles the password. The "10" is the "salt rounds"
-    // — higher = more secure but slower. 10 is the industry standard.
-    // We NEVER store plain-text passwords in the database.
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Step 4: Create the new user document in MongoDB
@@ -73,26 +82,23 @@ export const register = async (req, res) => {
       name, email,
       password: hashedPassword,
       role: safeRole,
-      // Generate initials from the name (e.g. "Abhishek Kumar" → "AB")
       avatar_initials: avatar_initials || (name ? name.substring(0, 2).toUpperCase() : 'U')
     });
     
-    // Step 5: Save the user to the database
     await user.save();
 
-    // Step 6: Generate a JWT token so the user is immediately logged in after registering.
-    // { id: user._id } is the "payload" stored inside the token.
-    // The token expires in 7 days — after that, the user must log in again.
+    // Step 5: Generate a JWT token
     const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '7d' });
 
-    // Step 7: Send back the token + user data to the frontend
+    // [SECURITY - MED-01]: Set HttpOnly Cookie alongside JSON token
+    setAuthCookie(res, token);
+
     res.status(201).json({ success: true, token, user });
   } catch (error) {
     console.error('Registration error:', error);
     res.status(500).json({ success: false, error: 'Registration failed' });
   }
 };
-
 
 
 // ─────────────────────────────────────────────
@@ -104,53 +110,80 @@ export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
     
-    // Step 1: Find the user by email in our MongoDB database
     const user = await User.findOne({ email });
     if (!user) {
-      // Don't reveal if the email exists or not — say "Invalid credentials" for security
       return res.status(401).json({ success: false, error: 'Invalid credentials' });
     }
 
-    // Step 2: Compare the entered password against the hashed one in DB
-    // bcrypt.compare() hashes the input and checks if it matches the stored hash
+    // ============================================================================
+    // [SECURITY - MED-05]: Per-Account Lockout Defense
+    // ============================================================================
+    // To prevent distributed credential-stuffing attacks across botnets, we track
+    // failed login attempts on a PER-EMAIL basis in MongoDB.
+    // If an account exceeds 10 consecutive failed attempts, it is locked for 30 minutes.
+    // While locked, authentication attempts fail instantly before touching bcrypt or Firebase.
+    // ============================================================================
+    if (user.lock_until && user.lock_until > Date.now()) {
+      const minutesRemaining = Math.ceil((user.lock_until.getTime() - Date.now()) / (1000 * 60));
+      return res.status(423).json({
+        success: false,
+        error: `Account is temporarily locked due to repeated failed login attempts. Please try again in ${minutesRemaining} minutes.`
+      });
+    }
+
     let isMatch = await bcrypt.compare(password, user.password);
 
-    // Step 3: Firebase Password Fallback
-    // Some users originally signed up via Firebase Auth (not our backend).
-    // Their passwords may be stored in Firebase but not in our DB yet.
-    // So if bcrypt check fails, we try verifying against Firebase's REST API.
-    // [SECURITY - C1]: Key is read from .env only — no hardcoded fallback.
     const firebaseApiKey = process.env.FIREBASE_API_KEY || process.env.VITE_FIREBASE_API_KEY;
 
     if (!isMatch && firebaseApiKey) {
       try {
-        // Call Firebase's sign-in endpoint to check the password
         const fireRes = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${firebaseApiKey}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password, returnSecureToken: true })
         });
         if (fireRes.ok) {
-          // Firebase confirmed the password is correct!
           isMatch = true;
-          // Now sync the password hash into our MongoDB so future logins are faster
           user.password = await bcrypt.hash(password, 10);
-          await user.save();
         }
       } catch (e) {
-        // If Firebase is down or returns an error, just continue — don't crash
+        // Continue silently if Firebase call fails
       }
-    } else if (!isMatch && !firebaseApiKey) {
-      console.warn('⚠️ FIREBASE_API_KEY not set — Firebase password fallback is disabled');
     }
 
-    // Step 4: If neither our DB nor Firebase matched the password, reject the login
     if (!isMatch) {
+      // Increment failed login count
+      user.failed_login_attempts = (user.failed_login_attempts || 0) + 1;
+
+      // Lock account for 30 minutes after 10 consecutive failed attempts
+      const MAX_FAILED_ATTEMPTS = 10;
+      const LOCK_TIME_MS = 30 * 60 * 1000; // 30 minutes
+
+      if (user.failed_login_attempts >= MAX_FAILED_ATTEMPTS) {
+        user.lock_until = new Date(Date.now() + LOCK_TIME_MS);
+        await user.save();
+        console.warn(`🚨 [ACCOUNT LOCKED]: User ${user.email} locked until ${user.lock_until.toISOString()}`);
+        return res.status(423).json({
+          success: false,
+          error: 'Account is temporarily locked due to 10 consecutive failed login attempts. Please try again in 30 minutes.'
+        });
+      }
+
+      await user.save();
       return res.status(401).json({ success: false, error: 'Invalid credentials' });
     }
 
-    // Step 5: Generate a JWT and return it to the frontend
+    // Successful login -> Reset failed attempts and clear lock_until
+    user.failed_login_attempts = 0;
+    user.lock_until = null;
+    await user.save();
+
+    // Step 5: Generate JWT & set HttpOnly cookie
     const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '7d' });
+    
+    // [SECURITY - MED-01]: Set HttpOnly cookie for browser sessions
+    setAuthCookie(res, token);
+
     res.json({ success: true, token, user });
   } catch (error) {
     console.error('Login error:', error);
@@ -160,13 +193,25 @@ export const login = async (req, res) => {
 
 
 // ─────────────────────────────────────────────
+// 🚪 LOGOUT — Clear session & HttpOnly Cookie
+// ─────────────────────────────────────────────
+// POST /api/auth/logout
+export const logout = async (req, res) => {
+  try {
+    res.clearCookie('token', COOKIE_OPTIONS);
+    res.json({ success: true, message: 'Logged out successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, error: 'Logout failed' });
+  }
+};
+
+
+// ─────────────────────────────────────────────
 // 👤 GET ME — Fetch currently logged-in user
 // ─────────────────────────────────────────────
-// GET /api/auth/me  (protected — requires JWT in header)
-// The authMiddleware already verified the token and put req.userId on the request.
+// GET /api/auth/me  (protected — requires JWT in header or HttpOnly Cookie)
 export const getMe = async (req, res) => {
   try {
-    // req.userId was set by the authMiddleware after verifying the JWT
     const user = await User.findById(req.userId);
     if (!user) {
       return res.status(404).json({ success: false, error: 'User not found' });
@@ -182,29 +227,17 @@ export const getMe = async (req, res) => {
 // ─────────────────────────────────────────────
 // 🔒 FORGOT PASSWORD — Trigger Firebase email reset
 // ─────────────────────────────────────────────
-// POST /api/auth/forgot-password
-// Body: { email }
-// Note: The actual email sending is handled by Firebase on the frontend.
-// This endpoint just ensures the user exists in Firebase so they can receive it.
 export const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
 
-    // [SECURITY - M3]: Anti-Enumeration Pattern
-    // Always return the same success response regardless of whether the email exists.
-    // This prevents attackers from probing which emails are registered in our system.
-    // We still do the real work internally — we just don't reveal the outcome.
     const user = await User.findOne({ email });
 
     if (user && admin && admin.apps.length) {
-      // User exists — ensure they're in Firebase so reset email can be sent
       try {
         await admin.auth().getUserByEmail(email);
-        // If no error thrown, user exists in Firebase — nothing extra needed
       } catch (err) {
         if (err.code === 'auth/user-not-found') {
-          // User is in our DB but not in Firebase — create a placeholder Firebase account
-          // so Firebase can send them a password reset email
           await admin.auth().createUser({ email, displayName: user.name });
         } else {
           console.error("Firebase admin error:", err);
@@ -212,7 +245,6 @@ export const forgotPassword = async (req, res) => {
       }
     }
 
-    // Always return success — don't reveal if the email was found or not
     res.json({ success: true, message: 'If this email is registered, a reset link will be sent.' });
   } catch (error) {
     console.error('Forgot password error:', error);
@@ -224,16 +256,6 @@ export const forgotPassword = async (req, res) => {
 // ─────────────────────────────────────────────
 // 🔵 GOOGLE LOGIN — Sign in via Google OAuth
 // ─────────────────────────────────────────────
-// POST /api/auth/google
-// Body: { token }  ← this is a Firebase ID Token from the frontend after Google sign-in
-//
-// FLOW:
-//  1. User clicks "Sign in with Google" on frontend
-//  2. Firebase SDK handles the Google popup/redirect and returns an ID token
-//  3. Frontend sends that ID token to this endpoint
-//  4. We verify it using Firebase Admin SDK (server-side)
-//  5. We find or create the user in our MongoDB
-//  6. We issue our own JWT so the rest of our API works the same way
 export const googleLogin = async (req, res) => {
   try {
     const { token } = req.body;
@@ -241,40 +263,83 @@ export const googleLogin = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Google Token required' });
     }
 
-    // Make sure Firebase Admin is initialised (requires credentials in .env)
     if (!admin.apps.length) {
-      return res.status(500).json({ success: false, error: 'Firebase Admin not initialized on server. Add credentials to .env' });
+      return res.status(500).json({ success: false, error: 'Firebase Admin not initialized on server.' });
     }
 
-    // Step 1: Verify the Google/Firebase ID token using Firebase Admin SDK.
-    // This confirms the token is genuine and was issued by Firebase.
     const decodedToken = await admin.auth().verifyIdToken(token);
-    const { email, name, picture } = decodedToken; // extract user info from the verified token
+    const { email, name, picture } = decodedToken;
 
-    // Step 2: Check if a user with this email already exists in our MongoDB
     let user = await User.findOne({ email });
     if (!user) {
-      // First-time Google login — create their account in our database
-      // No password needed since they'll always use Google to log in
       user = new User({
         name: name || 'Google User',
         email,
-        password: '', // Blank password placeholder — can be set later via addPassword endpoint
+        password: '',
         role: 'Student',
         avatar_initials: name ? name.substring(0, 2).toUpperCase() : 'U',
-        avatar_url: picture || '' // use their Google profile picture
+        avatar_url: picture || ''
       });
       await user.save();
     }
 
-    // Step 3: Issue our own JWT token so the rest of the API works normally
-    // From this point on, the user's session is managed by our JWT, not Firebase
     const jwtToken = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '7d' });
+
+    // [SECURITY - MED-01]: Set HttpOnly cookie for Google OAuth logins too
+    setAuthCookie(res, jwtToken);
+
     res.json({ success: true, token: jwtToken, user });
 
   } catch (error) {
     console.error('Google login error:', error);
-    // If token verification fails (expired, tampered), send a 401 Unauthorized
     res.status(401).json({ success: false, error: 'Failed to verify Google Token' });
+  }
+};
+
+
+// ─────────────────────────────────────────────
+// 👑 MAKE ADMIN — Secure Admin Promotion Path
+// ─────────────────────────────────────────────
+// POST /api/auth/make-admin
+// Body: { admin_secret }
+//
+// [SECURITY - MED-03]: Secure Admin Promotion Mechanism
+// Resolves MED-03 by providing a secret-protected pathway for platform owners
+// to promote an account to the `admin` role using `ADMIN_SECRET_KEY` in .env.
+export const makeAdmin = async (req, res) => {
+  try {
+    const { admin_secret } = req.body;
+    const envSecret = process.env.ADMIN_SECRET_KEY;
+
+    if (!envSecret) {
+      return res.status(500).json({ 
+        success: false, 
+        error: 'ADMIN_SECRET_KEY is not configured in the server .env file.' 
+      });
+    }
+
+    if (!admin_secret || admin_secret !== envSecret) {
+      return res.status(403).json({ 
+        success: false, 
+        error: 'Invalid admin secret key.' 
+      });
+    }
+
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    user.role = 'admin';
+    await user.save();
+
+    res.json({ 
+      success: true, 
+      message: `User ${user.email} successfully promoted to admin role!`, 
+      user 
+    });
+  } catch (error) {
+    console.error('Error promoting user to admin:', error);
+    res.status(500).json({ success: false, error: 'Failed to promote user to admin' });
   }
 };

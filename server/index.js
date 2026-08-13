@@ -10,7 +10,7 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import { initializeDatabase } from './database.js';
-import { authMiddleware, errorHandler, requestLogger } from './middleware/index.js';
+import { authMiddleware, csrfProtection, errorHandler, requestLogger } from './middleware/index.js';
 
 import papersRoutes from './routes/papers.js';
 import projectsRoutes from './routes/projects.js';
@@ -46,7 +46,7 @@ const PORT = process.env.PORT || 3001;
 // prevents MIME-sniffing, and hides the 'X-Powered-By' Express header from attackers.
 app.use(helmet({
   // Allows our frontend to load images/resources from the backend (like avatars)
-  crossOriginResourcePolicy: { policy: "cross-origin" } 
+  crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
 const allowedOrigins = [
@@ -83,14 +83,27 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(requestLogger);
 
+// [SECURITY - MED-02]: Global CSRF Protection Middleware
+// Prevents Cross-Site Request Forgery on all state-mutating API routes (POST, PUT, DELETE, PATCH).
+app.use(csrfProtection);
+
+/**
+ * Setting app.set('trust proxy', 1) tells Express: "Read the X-Forwarded-For and X-Forwarded-Proto headers added by the single proxy sitting right in front of you."
+ * 1: Trust only the immediate proxy in front of Express (ideal for single-proxy setups like standard Render, Heroku, or standard Vercel deployments).
+ */
+
+app.set('trust proxy', 1);
+
+
 // ─── Rate Limiting ───────────────────────────────────────────────
 // [SECURITY - H1]: Global limiter: 200 req / 15 min per IP across all API routes
 const globalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 200,
-  standardHeaders: true,
-  legacyHeaders: false,
+  windowMs: 15 * 60 * 1000, // 15 minutes in milliseconds
+  max: 200,                  // Limit each IP to 200 requests per 15 minutes
+  standardHeaders: true,     // Send standard rate limit headers in HTTP responses
+  legacyHeaders: false,      // Disable X-RateLimit-* headers
   message: { success: false, error: 'Too many requests, please try again later.' },
+  keyGenerator: (req) => req.ip, // Track requests by the client's IP address
 });
 
 // [SECURITY - H1 + H2]: Stricter limiter for paper search (public, unauthenticated)

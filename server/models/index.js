@@ -23,8 +23,8 @@ const toJSONTransform = (doc, ret) => {
   delete ret._id;     // remove the original _id
   delete ret.__v;     // remove MongoDB's internal version key
   delete ret.password; // [SECURITY - N-H1]: Never send the password hash to the client.
-                       // Even though bcrypt hashes can't be reversed easily, sending them
-                       // enables offline brute-force attacks and violates least-privilege.
+  delete ret.failed_login_attempts; // [SECURITY - MED-05]: Hide security lockout state
+  delete ret.lock_until;
   return ret;
 };
 
@@ -59,6 +59,10 @@ const userSchema = new mongoose.Schema({
   avatar_url: { type: String },                        // profile picture URL (from Google or upload)
   interests: [{ type: String }],                       // list of research topics the user picked
   hasSelectedInterests: { type: Boolean, default: false }, // tracks if user completed the onboarding step
+
+  // [SECURITY - MED-05]: Account Lockout Defense Fields
+  failed_login_attempts: { type: Number, default: 0 }, // tracks consecutive failed logins on this email
+  lock_until: { type: Date, default: null },            // timestamp until which account is locked
 }, schemaOptions);
 
 const User = mongoose.model('User', userSchema);
