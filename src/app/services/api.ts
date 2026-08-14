@@ -25,6 +25,8 @@ async function request<T>(
   const url = `${BASE_URL}${endpoint}`;
   const token = localStorage.getItem('token');
   const config: RequestInit = {
+    // [SECURITY - MED-01]: Send credentials (HttpOnly cookies) automatically with cross-origin & same-origin requests
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { 'Authorization': `Bearer ${token}` } : {}),

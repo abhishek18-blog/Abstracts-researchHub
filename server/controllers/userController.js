@@ -157,9 +157,12 @@ export const addPassword = async (req, res) => {
   try {
     const { password } = req.body;
 
-    // Validate: password must exist and be at least 6 characters
-    if (!password || password.length < 6) {
-      return res.status(400).json({ success: false, error: 'Invalid password' });
+    // [SECURITY - LOW-04]: Standardized Password Minimum Length
+    // The `register` endpoint requires 8 characters. Previously, `addPassword` only required 6,
+    // allowing Google-sign-in users to set weaker passwords than direct registrations.
+    // Now both are consistent at 8 characters minimum.
+    if (!password || password.length < 8) {
+      return res.status(400).json({ success: false, error: 'Password must be at least 8 characters' });
     }
 
     // Hash the new password before storing (never store plain text!)

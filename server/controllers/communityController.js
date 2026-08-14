@@ -132,10 +132,22 @@ export const createCommunity = async (req, res) => {
       return res.status(400).json({ success: false, error: 'name and subject are required' });
     }
 
+    // [SECURITY - HIGH-03]: Input Length Caps (DoS & Payload Bloat Prevention)
+    // Validate text field lengths to prevent attackers from sending multi-megabyte payloads.
+    if (name.length > 150) {
+      return res.status(400).json({ success: false, error: 'Community name must be 150 characters or fewer' });
+    }
+    if (subject.length > 100) {
+      return res.status(400).json({ success: false, error: 'Subject must be 100 characters or fewer' });
+    }
+    if (description && description.length > 2000) {
+      return res.status(400).json({ success: false, error: 'Description must be 2000 characters or fewer' });
+    }
+
     const community = new Community({
-      name,
-      description: description || '',
-      subject,
+      name: name.trim(),
+      description: description ? description.trim() : '',
+      subject: subject.trim(),
       icon: icon || '🔬',
       created_by: req.userId,
       is_private: is_private || false,
@@ -176,9 +188,16 @@ export const updateCommunity = async (req, res) => {
     const isAdmin = community.created_by === req.userId || !!(await CommunityMember.findOne({ community_id: req.params.id, user_id: req.userId, role: 'admin' }));
     if (!isAdmin) return res.status(403).json({ success: false, error: 'Only admins can update this community' });
 
-    // Only update the fields that were actually sent in the request
-    // This prevents accidentally wiping out existing data
     const { cover_photo, link, guidelines_link } = req.body;
+
+    // [SECURITY - HIGH-03]: Input Length Validation for Community Edits
+    if (link !== undefined && typeof link === 'string' && link.length > 500) {
+      return res.status(400).json({ success: false, error: 'Link must be 500 characters or fewer' });
+    }
+    if (guidelines_link !== undefined && typeof guidelines_link === 'string' && guidelines_link.length > 500) {
+      return res.status(400).json({ success: false, error: 'Guidelines link must be 500 characters or fewer' });
+    }
+
     if (cover_photo !== undefined) {
       // [SECURITY - N-M3]: Cap cover photo size at 2MB.
       // Unlimited base64 strings can bloat MongoDB documents toward the 16MB doc limit.
@@ -362,10 +381,16 @@ export const createPost = async (req, res) => {
       return res.status(400).json({ success: false, error: 'Post content is required' });
     }
 
+    // [SECURITY - HIGH-03]: Input Length Validation for Community Posts
+    // Prevents malicious memory exhaustion / database bloat by capping post text to 10,000 chars.
+    const MAX_POST_LENGTH = 10000;
+    if (content.length > MAX_POST_LENGTH) {
+      return res.status(400).json({ success: false, error: `Post content must be ${MAX_POST_LENGTH} characters or fewer` });
+    }
+
     // [SECURITY]: Input Sanitization (XSS Prevention)
     // We use the 'xss' library to strip out any potentially malicious HTML or JavaScript tags 
-    // from the user's post content. This ensures that if a user types something like <script>alert('hacked')</script>, 
-    // it gets safely neutralized and won't execute on other users' browsers when they view the post.
+    // from the user's post content.
     const sanitizedContent = xss(content.trim());
 
     const community = await Community.findById(req.params.id);

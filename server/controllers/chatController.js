@@ -23,7 +23,7 @@ async function getAIResponse(messages, userMessage) {
           { role: 'system', content: 'Act as an AI research assistant. Provide plain text only. NO markdown, bolding, or asterisks.' },
           ...formattedHistory
         ],
-        model: 'openai/gpt-oss-120b',
+        model: 'llama-3.3-70b-versatile',
       });
 
       return chatCompletion.choices[0].message.content.replace(/\*\*/g, '');
@@ -147,18 +147,18 @@ export const getMessages = async (req, res) => {
 export const createConversation = async (req, res) => {
   try {
     const { title } = req.body;
-    
+
     const conversation = new Conversation({
       user_id: req.userId,
       title: title || 'New Conversation'
     });
-    
+
     await conversation.save();
 
     const welcomeMsg = new Message({
       conversation_id: conversation._id,
       role: 'assistant',
-      content: "Hi! I'm your AI research assistant. I'm now powered by openai/gpt-oss-120b. I can help you understand papers, explain formulas, summarize content, and answer questions about your research. What would you like to know?",
+      content: "Hi! I'm your AI research assistant. I can help you understand papers, explain formulas, summarize content, and answer questions about your research. What would you like to know?",
     });
 
     // \u2705 BUG FIX: Previously this line was missing — the welcome message was created in memory
@@ -182,9 +182,9 @@ export const sendMessage = async (req, res) => {
     // An attacker could send 100k-character messages to burn your entire token budget.
     const MAX_CHAT_LENGTH = 4000;
     if (content.trim().length > MAX_CHAT_LENGTH) {
-      return res.status(400).json({ 
-        success: false, 
-        error: `Message too long. Maximum ${MAX_CHAT_LENGTH} characters allowed.` 
+      return res.status(400).json({
+        success: false,
+        error: `Message too long. Maximum ${MAX_CHAT_LENGTH} characters allowed.`
       });
     }
 

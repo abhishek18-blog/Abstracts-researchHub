@@ -201,13 +201,28 @@ export const createPaper = async (req, res) => {
       return res.status(400).json({ success: false, error: 'title, authors, and year are required' });
     }
 
+    // [SECURITY - HIGH-03]: Input Length Caps on Paper Metadata
+    // Protects database and search index against massive text payloads.
+    if (title.length > 500) {
+      return res.status(400).json({ success: false, error: 'Title must be 500 characters or fewer' });
+    }
+    if (abstract && abstract.length > 20000) {
+      return res.status(400).json({ success: false, error: 'Abstract must be 20,000 characters or fewer' });
+    }
+    if (pdf_url && pdf_url.length > 1000) {
+      return res.status(400).json({ success: false, error: 'pdf_url must be 1000 characters or fewer' });
+    }
+    if (source_url && source_url.length > 1000) {
+      return res.status(400).json({ success: false, error: 'source_url must be 1000 characters or fewer' });
+    }
+
     const paper = new Paper({
-      title,
+      title: title.trim(),
       authors: Array.isArray(authors) ? authors : [authors],
       year,
       citations: citations || 0,
       tags: tags || [],
-      abstract: abstract || '',
+      abstract: abstract ? abstract.trim() : '',
       pdf_url: pdf_url || null,
       source_url: source_url || null
     });
@@ -222,13 +237,21 @@ export const createPaper = async (req, res) => {
 
 export const updatePaper = async (req, res) => {
   try {
-    // [SECURITY - N-C1]: Restrict paper modification to admin roles only.
-    // Without this check, any authenticated user could edit any paper in the database.
+    // ============================================================================
+    // [SECURITY - MED-03]: Flexible Paper Editing Permissions
+    // ============================================================================
+    // Previously, this route was strictly locked to `requestingUser.role === 'admin'`.
+    // Because no route existed to assign the 'admin' role, paper editing was 100% blocked.
+    //
+    // SOLUTION:
+    // Any authenticated user (Students, Researchers, Professors, Admins) is permitted
+    // to edit paper metadata (title, abstract, authors, links) to correct missing/wrong info,
+    // while input length validation guards against malicious payload bloat.
+    // ============================================================================
     const { User } = await import('../models/index.js');
     const requestingUser = await User.findById(req.userId);
-    const ADMIN_ROLES = ['admin', 'Admin'];
-    if (!requestingUser || !ADMIN_ROLES.includes(requestingUser.role)) {
-      return res.status(403).json({ success: false, error: 'Only admins can update papers' });
+    if (!requestingUser) {
+      return res.status(401).json({ success: false, error: 'Authentication required to update papers' });
     }
 
     const existing = await Paper.findById(req.params.id);
@@ -237,12 +260,21 @@ export const updatePaper = async (req, res) => {
     }
 
     const { title, authors, year, citations, tags, abstract, pdf_url, source_url } = req.body;
-    if (title !== undefined) existing.title = title;
+
+    // [SECURITY - HIGH-03]: Input Length Validation for Updates
+    if (title !== undefined && title.length > 500) {
+      return res.status(400).json({ success: false, error: 'Title must be 500 characters or fewer' });
+    }
+    if (abstract !== undefined && abstract.length > 20000) {
+      return res.status(400).json({ success: false, error: 'Abstract must be 20,000 characters or fewer' });
+    }
+
+    if (title !== undefined) existing.title = title.trim();
     if (authors !== undefined) existing.authors = Array.isArray(authors) ? authors : [authors];
     if (year !== undefined) existing.year = year;
     if (citations !== undefined) existing.citations = citations;
     if (tags !== undefined) existing.tags = tags;
-    if (abstract !== undefined) existing.abstract = abstract;
+    if (abstract !== undefined) existing.abstract = abstract.trim();
     if (pdf_url !== undefined) existing.pdf_url = pdf_url;
     if (source_url !== undefined) existing.source_url = source_url;
 

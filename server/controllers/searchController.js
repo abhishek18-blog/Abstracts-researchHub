@@ -132,14 +132,62 @@ async function searchOpenAlex(q, limit, offset, options = {}) {
   };
 }
 
+// ============================================================================
+// [SECURITY - HIGH-02]: SSRF (Server-Side Request Forgery) Protection Helper
+// ============================================================================
+// WHAT IS SSRF?
+// Server-Side Request Forgery happens when an application fetches a URL supplied
+// or influenced by an external user without validating where it points.
+// An attacker could supply internal addresses (e.g. `http://localhost:3001` or
+// AWS metadata server `http://169.254.169.254/latest/meta-data/`) to read private
+// cloud secrets or attack internal infrastructure.
+//
+// HOW THIS HELPER PROTECTS THE SERVER:
+// 1. Ensures the URL uses standard web protocols (`http:` or `https:` only).
+// 2. Rejects local loopback hostnames (`localhost`, `127.0.0.1`, `0.0.0.0`, `::1`).
+// 3. Blocks private network ranges (`10.x.x.x`, `172.16-31.x.x`, `192.168.x.x`).
+// 4. Blocks cloud provider link-local metadata IP (`169.254.169.254`).
+// ============================================================================
+function isSafeUrl(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== 'string') return false;
+  try {
+    const parsed = new URL(rawUrl);
+    
+    // Step 1: Reject unsafe schemes like file://, ftp://, gopher://, etc.
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return false;
+    }
+
+    const hostname = parsed.hostname.toLowerCase();
+
+    // Step 2: Block internal, loopback, and cloud metadata hostnames/IPs
+    if (
+      hostname === 'localhost' ||
+      hostname === '127.0.0.1' ||
+      hostname === '::1' ||
+      hostname === '0.0.0.0' ||
+      // Match private IP subnets: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16, 169.254.0.0/16 (AWS/GCP metadata)
+      /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|169\.254\.)/.test(hostname)
+    ) {
+      return false;
+    }
+
+    return true; // URL passed all security checks!
+  } catch {
+    return false; // Malformed URL string
+  }
+}
+
 // ─── Abstract Rescue Helper ──────────────────────────────────────────────
+// Aggressively attempts to fetch missing abstract text from external sources (OpenAlex & publisher metadata).
 async function rescueAbstract(paper) {
+  // If paper already has a valid abstract (at least 20 chars), no rescue needed
   if (paper.abstract && paper.abstract.trim().length >= 20) return paper;
 
   try {
-    // 1. Try OpenAlex if we have a DOI and missing abstract
+    // Tier 1: Try OpenAlex inverted index if we have a valid DOI
     if (paper.doi) {
-      const oaUrl = `https://api.openalex.org/works/doi:${paper.doi}`;
+      const oaUrl = `https://api.openalex.org/works/doi:${encodeURIComponent(paper.doi)}`;
       const oaRes = await fetch(oaUrl);
       if (oaRes.ok) {
         const oaData = await oaRes.json();
@@ -155,12 +203,14 @@ async function rescueAbstract(paper) {
       }
     }
 
-    // 2. Try HTML scraping directly from the publisher source url
-    const targetUrl = paper.url || (paper.doi ? `https://doi.org/${paper.doi}` : null);
-    if (targetUrl) {
+    // Tier 2: Try HTML scraping from publisher source URL (strictly SSRF-protected via isSafeUrl)
+    const targetUrl = paper.url || (paper.doi ? `https://doi.org/${encodeURIComponent(paper.doi)}` : null);
+    
+    // [SECURITY]: Verify URL is safe BEFORE initiating the outgoing HTTP request
+    if (targetUrl && isSafeUrl(targetUrl)) {
       const htmlRes = await fetch(targetUrl, {
         headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0' },
-        signal: AbortSignal.timeout(3000)
+        signal: AbortSignal.timeout(3000) // 3-second timeout guard
       });
       if (htmlRes.ok) {
         const html = await htmlRes.text();
@@ -247,6 +297,15 @@ export async function searchExternalPapers(req, res) {
       }
     }
 
+    if (!result || !result.papers) {
+      return res.status(530).json({
+        success: false,
+        error: 'External search services are temporarily rate-limited or unavailable. Please try again shortly.',
+        data: [],
+        total: 0
+      });
+    }
+
     if (result && result.papers) {
       // Aggressively attempt to rescue missing abstracts natively via our helper
       result.papers = await Promise.all(
@@ -264,8 +323,8 @@ export async function searchExternalPapers(req, res) {
 
     const responseData = {
       success: true,
-      data: result.papers,
-      total: result.total,
+      data: result.papers || [],
+      total: result.total || 0,
       offset: Number(offset),
       limit: Number(limit),
       source,
@@ -289,6 +348,17 @@ export async function importExternalPaper(req, res) {
     const { title, authors, year, citations, abstract, url, pdfUrl, doi, externalId } = req.body;
     if (!title) {
       return res.status(400).json({ success: false, error: 'Paper title is required' });
+    }
+
+    // [SECURITY - HIGH-03]: Input Length Validation on External Import
+    if (title.length > 500) {
+      return res.status(400).json({ success: false, error: 'Paper title must be 500 characters or fewer' });
+    }
+    if (abstract && abstract.length > 20000) {
+      return res.status(400).json({ success: false, error: 'Abstract must be 20,000 characters or fewer' });
+    }
+    if (url && url.length > 1000) {
+      return res.status(400).json({ success: false, error: 'URL must be 1000 characters or fewer' });
     }
 
     const orConditions = [{ title: new RegExp('^' + escapeRegex(title) + '$', 'i') }];
