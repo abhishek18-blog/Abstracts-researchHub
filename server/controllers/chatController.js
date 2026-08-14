@@ -9,18 +9,20 @@ const genAI = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GE
 const groq = process.env.GROQ_API_KEY ? new Groq({ apiKey: process.env.GROQ_API_KEY }) : null;
 
 async function getAIResponse(messages, userMessage) {
+  const systemPrompt = 'Act as an expert academic research assistant across all scientific disciplines. Provide helpful, accurate plain text responses matching the user topic. NO markdown bolding or asterisks.';
+
   // Try Groq First if available
   if (groq) {
-    try {
-      const formattedHistory = messages.map(m => ({
-        role: m.role === 'assistant' ? 'assistant' : 'user',
-        content: m.content
-      }));
-      formattedHistory.push({ role: 'user', content: userMessage });
+    const formattedHistory = messages.map(m => ({
+      role: m.role === 'assistant' ? 'assistant' : 'user',
+      content: m.content
+    }));
+    formattedHistory.push({ role: 'user', content: userMessage });
 
+    try {
       const chatCompletion = await groq.chat.completions.create({
         messages: [
-          { role: 'system', content: 'Act as an AI research assistant. Provide plain text only. NO markdown, bolding, or asterisks.' },
+          { role: 'system', content: systemPrompt },
           ...formattedHistory
         ],
         model: 'llama-3.3-70b-versatile',
@@ -28,7 +30,19 @@ async function getAIResponse(messages, userMessage) {
 
       return chatCompletion.choices[0].message.content.replace(/\*\*/g, '');
     } catch (error) {
-      console.warn('Groq Chat Error, falling back to Gemini if available:', error.message);
+      console.warn('Groq 70b failed, trying fallback model llama-3.1-8b-instant:', error.message);
+      try {
+        const fallbackCompletion = await groq.chat.completions.create({
+          messages: [
+            { role: 'system', content: systemPrompt },
+            ...formattedHistory
+          ],
+          model: 'llama-3.1-8b-instant',
+        });
+        return fallbackCompletion.choices[0].message.content.replace(/\*\*/g, '');
+      } catch (err2) {
+        console.warn('Groq secondary model failed, checking Gemini fallback:', err2.message);
+      }
     }
   }
 

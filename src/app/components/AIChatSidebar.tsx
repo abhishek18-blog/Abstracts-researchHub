@@ -156,14 +156,18 @@ export function AIChatSidebar({ isOpen, onClose }: AIChatSidebarProps) {
   const handleSuggestPapers = async (explicitTopic?: string) => {
     if (sending) return;
 
-    // Use explicit topic if provided, else use last message, else generic
+    // Use explicit topic if provided, else use last user message content, else generic neutral fallback
     const lastUserMsg = [...messages].reverse().find(m => m.role === 'user')?.content;
-    const topic = explicitTopic || lastUserMsg || "latest trends in AI and Research Platforms";
+    const topic = explicitTopic || lastUserMsg || "academic research and science";
 
-    // Build robust context from recent conversation history for prompt engineering
+    // Build context from user-assistant conversation history, ignoring generic welcome messages
     const recentMessages = [...messages]
-      .filter(m => !m.id.startsWith('temp-') && !('isDiscoverPrompt' in m))
-      .slice(-10);
+      .filter(m => 
+        !m.id.startsWith('temp-') && 
+        !('isDiscoverPrompt' in m) &&
+        !m.content.includes("I'm your AI research assistant")
+      )
+      .slice(-6);
       
     const context = recentMessages.length > 0
       ? recentMessages.map(m => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`).join('\n')
