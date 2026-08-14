@@ -103,7 +103,6 @@ const globalLimiter = rateLimit({
   standardHeaders: true,     // Send standard rate limit headers in HTTP responses
   legacyHeaders: false,      // Disable X-RateLimit-* headers
   message: { success: false, error: 'Too many requests, please try again later.' },
-  keyGenerator: (req) => req.ip, // Track requests by the client's IP address
 });
 
 // [SECURITY - H1 + H2]: Stricter limiter for paper search (public, unauthenticated)

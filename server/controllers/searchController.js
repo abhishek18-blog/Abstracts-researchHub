@@ -297,6 +297,15 @@ export async function searchExternalPapers(req, res) {
       }
     }
 
+    if (!result || !result.papers) {
+      return res.status(530).json({
+        success: false,
+        error: 'External search services are temporarily rate-limited or unavailable. Please try again shortly.',
+        data: [],
+        total: 0
+      });
+    }
+
     if (result && result.papers) {
       // Aggressively attempt to rescue missing abstracts natively via our helper
       result.papers = await Promise.all(
@@ -314,8 +323,8 @@ export async function searchExternalPapers(req, res) {
 
     const responseData = {
       success: true,
-      data: result.papers,
-      total: result.total,
+      data: result.papers || [],
+      total: result.total || 0,
       offset: Number(offset),
       limit: Number(limit),
       source,
