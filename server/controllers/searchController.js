@@ -12,8 +12,10 @@ const searchCache = new Map();
 const CACHE_TTL = 1000 * 60 * 60; // 1 hour
 const MAX_CACHE_SIZE = 1000;
 
-function getCacheKey(q, limit, offset, year, sort) {
-  return `${q.trim().toLowerCase()}_${limit}_${offset}_${year || ''}_${sort || ''}`;
+// [SECURITY - MED-02 FIX]: Scope cache keys by userId (or 'public' for guests).
+// Guarantees data isolation and prevents potential cross-user cache leakage.
+function getCacheKey(q, limit, offset, year, sort, userId = 'public') {
+  return `${userId}_${q.trim().toLowerCase()}_${limit}_${offset}_${year || ''}_${sort || ''}`;
 }
 
 // ─── Helper: fetch with retry for rate-limited APIs ──────────────
@@ -43,7 +45,7 @@ async function searchSemanticScholar(q, limit, offset, useApiKey = true, options
   }
 
   const headers = { 'Accept': 'application/json' };
-  const apiKey = process.env.SEMANTIC_SCHOLAR_API_KEY || process.env.S2_API_KEY;
+  const apiKey = process.env.SEMANTIC_SCHOLAR_API_KEY;
 
   if (useApiKey && apiKey) {
     headers['x-api-key'] = apiKey;
@@ -237,7 +239,8 @@ export async function searchExternalPapers(req, res) {
       return res.status(400).json({ success: false, error: 'Search query (q) is required' });
     }
 
-    const cacheKey = getCacheKey(q, limit, offset, year, sort);
+    const userId = req.userId || 'public';
+    const cacheKey = getCacheKey(q, limit, offset, year, sort, userId);
     const cached = searchCache.get(cacheKey);
     
     if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
@@ -255,45 +258,43 @@ export async function searchExternalPapers(req, res) {
     let source = '';
     const options = { year, sort };
 
-    // Tier 1: Try Semantic Scholar Official API (with x-api-key)
-    const apiKey = process.env.SEMANTIC_SCHOLAR_API_KEY || process.env.S2_API_KEY;
-    if (apiKey) {
+    // Tier 1: Try OpenAlex (No limits, free, instantly scalable)
+    if (noOpenAlex !== 'true') {
       try {
-        console.log('🔍 [Tier 1] Querying Semantic Scholar Official API (with API Key)...');
+        console.log('🔍 [Tier 1] Querying OpenAlex API (No Rate Limits)...');
+        result = await searchOpenAlex(q, Number(limit), Number(offset), options);
+        if (result) {
+          source = 'OpenAlex';
+        }
+      } catch (err) {
+        console.error('⚠️ [Tier 1] OpenAlex failed:', err.message);
+      }
+    }
+
+    // Tier 2: Try Semantic Scholar Official API (with x-api-key)
+    const apiKey = process.env.SEMANTIC_SCHOLAR_API_KEY;
+    if (!result && apiKey) {
+      try {
+        console.log('🔄 [Tier 2] Falling back to Semantic Scholar Official API (with API Key)...');
         result = await searchSemanticScholar(q, Number(limit), Number(offset), true, options);
         if (result) {
           source = 'Semantic Scholar (Official)';
         }
       } catch (err) {
-        console.log('⚠️ [Tier 1] Semantic Scholar Official failed:', err.message);
+        console.log('⚠️ [Tier 2] Semantic Scholar Official failed:', err.message);
       }
     }
 
-    // Tier 2: Try Semantic Scholar Public API (No API Key)
+    // Tier 3: Try Semantic Scholar Public API (No API Key)
     if (!result) {
       try {
-        console.log('🔄 [Tier 2] Falling back to Semantic Scholar Public (no API key)...');
+        console.log('🔄 [Tier 3] Falling back to Semantic Scholar Public (no API key)...');
         result = await searchSemanticScholar(q, Number(limit), Number(offset), false, options);
         if (result) {
           source = 'Semantic Scholar';
         }
       } catch (err) {
-        console.log('⚠️ [Tier 2] Semantic Scholar Public failed:', err.message);
-      }
-    }
-
-    // Tier 3: Try OpenAlex (Crucial fallback so main Discover search doesn't break)
-    if (!result && noOpenAlex !== 'true') {
-      try {
-        console.log('🔄 [Tier 3] Falling back to OpenAlex...');
-        result = await searchOpenAlex(q, Number(limit), Number(offset), options);
-        source = 'OpenAlex';
-      } catch (err) {
-        console.error('❌ [Tier 3] OpenAlex also failed:', err.message);
-        return res.status(503).json({
-          success: false,
-          error: 'All paper search services are unavailable. Please try again in a moment.',
-        });
+        console.log('⚠️ [Tier 3] Semantic Scholar Public failed:', err.message);
       }
     }
 

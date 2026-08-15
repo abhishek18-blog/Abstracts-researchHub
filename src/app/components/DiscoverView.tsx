@@ -1,6 +1,8 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { Search, ExternalLink, FileText, Users, Calendar, Loader2, BookmarkPlus, Check, Globe } from 'lucide-react';
 import { searchApi, type ExternalPaper } from '../services/api';
+import { SearchFilter } from './SearchFilter';
+import { filterPapers, FilterCriteria } from '../utils/filterUtils';
 
 export function DiscoverView() {
   const [query, setQuery] = useState('');
@@ -13,6 +15,7 @@ export function DiscoverView() {
   const [importingId, setImportingId] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
+  const [filters, setFilters] = useState<FilterCriteria>({ authors: [], years: [] });
 
   useEffect(() => {
     try {
@@ -35,7 +38,10 @@ export function DiscoverView() {
     } catch (e) { }
   };
 
+  const [loadingMore, setLoadingMore] = useState(false);
+
   const LIMIT = 10;
+  const FILTER_BULK_LIMIT = 300; // fetch up to 300 results when filter is active
 
   const doSearch = useCallback(async (q: string, newOffset = 0) => {
     if (!q.trim()) return;
@@ -52,12 +58,73 @@ export function DiscoverView() {
       }
       setTotal((res as any).total || 0);
       setOffset(newOffset);
+      if (newOffset === 0) setFilters({ authors: [], years: [] }); // Reset filters on new search
     } catch (err: any) {
       setError(err.message || 'Search failed. Please try again.');
     } finally {
       setLoading(false);
     }
   }, []);
+
+  const queryRef = useRef(query);
+  const resultsRef = useRef(results);
+  const totalRef = useRef(total);
+
+  useEffect(() => {
+    queryRef.current = query;
+    resultsRef.current = results;
+    totalRef.current = total;
+  }, [query, results, total]);
+
+  // When a filter becomes active and we only have 1 page loaded, bulk-fetch more silently
+  const hasActiveFilters = filters.authors.length > 0 || filters.years.length > 0;
+
+  useEffect(() => {
+    const currentQuery = queryRef.current.trim();
+    if (!hasActiveFilters || !currentQuery || loadingMore) return;
+    if (resultsRef.current.length >= FILTER_BULK_LIMIT || resultsRef.current.length >= totalRef.current) return;
+
+    let isCancelled = false;
+
+    const bulkFetch = async () => {
+      setLoadingMore(true);
+      try {
+        let currentOffset = resultsRef.current.length;
+        let allFetched = [...resultsRef.current];
+
+        while (allFetched.length < FILTER_BULK_LIMIT && allFetched.length < totalRef.current) {
+          if (isCancelled) break;
+          
+          // Fetch 100 at a time to speed up background loading
+          const fetchLimit = 100;
+          const res = await searchApi.searchPapers(currentQuery, fetchLimit, currentOffset);
+          if (!res.data || res.data.length === 0 || isCancelled) break;
+          
+          allFetched = [...allFetched, ...res.data];
+          currentOffset += fetchLimit;
+          
+          // Progressively update UI
+          setResults(allFetched);
+          setOffset(currentOffset - fetchLimit); // maintain offset correctly for "Load More"
+        }
+      } catch (err) {
+        // silently fail — existing results still usable
+      } finally {
+        if (!isCancelled) {
+          setLoadingMore(false);
+        }
+      }
+    };
+
+    bulkFetch();
+
+    return () => {
+      isCancelled = true;
+      setLoadingMore(false);
+    };
+  }, [hasActiveFilters, query]); // Re-run if filter toggled or new search query starts
+
+  const filteredResults = useMemo(() => filterPapers(results, filters), [results, filters]);
 
   useEffect(() => {
     const handleRemoteSearch = async (e: any) => {
@@ -161,6 +228,12 @@ export function DiscoverView() {
             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Search className="w-5 h-5 text-blue-400" />}
             Search
           </button>
+          <SearchFilter 
+            results={results} 
+            filters={filters} 
+            onFilterChange={setFilters}
+            loadingMore={loadingMore}
+          />
         </form>
 
         {/* Suggestions & Recent Searches */}
@@ -226,16 +299,31 @@ export function DiscoverView() {
 
         {results.length > 0 && (
           <div>
+            {/* Background loading banner when bulk-fetching for filter */}
+            {loadingMore && (
+              <div className="flex items-center gap-2 mb-4 px-4 py-2 bg-blue-50 border border-blue-200 rounded-xl text-blue-700 text-xs">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Loading more papers to improve filter results...
+              </div>
+            )}
             <div className="flex items-center justify-between mb-4">
               <p className="text-sm text-[#6B7280]">
-                Showing <span className="font-semibold text-[#111827]">{results.length}</span>
-                {total > 0 && <> of <span className="font-semibold text-[#111827]">{total.toLocaleString()}</span> results</>}
-                {' '}for "<span className="italic">{query}</span>"
+                {hasActiveFilters ? (
+                  <>
+                    Found <span className="font-semibold text-[#111827]">{filteredResults.length}</span> matching papers
+                    {loadingMore && <span className="ml-2 italic text-blue-500">(searching deep archives...)</span>}
+                  </>
+                ) : (
+                  <>
+                    Showing <span className="font-semibold text-[#111827]">{filteredResults.length}</span>
+                    {total > 0 && <> of <span className="font-semibold text-[#111827]">{total.toLocaleString()}</span> total</>}
+                  </>
+                )}
               </p>
             </div>
 
             <div className="space-y-4">
-              {results.map(paper => (
+              {filteredResults.map(paper => (
                 <ExternalPaperCard
                   key={paper.externalId}
                   paper={paper}

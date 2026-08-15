@@ -109,7 +109,7 @@ export const getPaperById = async (req, res) => {
       try {
         // 1. Try Semantic Scholar
         if (paper.external_id && !paper.external_id.includes('openalex')) {
-          const apiKey = process.env.SEMANTIC_SCHOLAR_API_KEY || process.env.S2_API_KEY;
+          const apiKey = process.env.SEMANTIC_SCHOLAR_API_KEY;
           const headers = { 'Accept': 'application/json' };
           if (apiKey) headers['x-api-key'] = apiKey;
 
