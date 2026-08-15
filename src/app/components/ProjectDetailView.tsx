@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
-  ChevronLeft, BookOpen, Plus, Trash2, Search, Loader2, X,
+  ChevronLeft, BookOpen, Plus, Trash2, Search, Loader2, X, Check,
   FileText, Users, Calendar, ExternalLink, BarChart3, Clock
 } from 'lucide-react';
 import { projectsApi, papersApi, type Project, type Paper } from '../services/api';
@@ -79,11 +79,10 @@ export function ProjectDetailView({ projectId, onBack }: ProjectDetailViewProps)
   };
 
   const paperIds = new Set(papers.map(p => p.id));
-  const addablePapers = allPapers.filter(p =>
-    !paperIds.has(p.id) &&
-    (!paperSearch.trim() ||
-      p.title.toLowerCase().includes(paperSearch.toLowerCase()) ||
-      p.authors.some(a => a.toLowerCase().includes(paperSearch.toLowerCase())))
+  const searchedPapers = allPapers.filter(p =>
+    !paperSearch.trim() ||
+    p.title.toLowerCase().includes(paperSearch.toLowerCase()) ||
+    p.authors.some(a => a.toLowerCase().includes(paperSearch.toLowerCase()))
   );
 
   if (loading) {
@@ -335,29 +334,38 @@ export function ProjectDetailView({ projectId, onBack }: ProjectDetailViewProps)
             </div>
 
             <div className="overflow-y-auto flex-1 p-3 space-y-1.5">
-              {addablePapers.length === 0 ? (
+              {searchedPapers.length === 0 ? (
                 <p className="text-center text-sm text-[#9CA3AF] py-8">
-                  {paperSearch ? 'No matching papers' : 'All your papers are already in this project!'}
+                  {paperSearch ? 'No matching papers' : 'No saved papers found in your library'}
                 </p>
               ) : (
-                addablePapers.map(paper => (
-                  <div key={paper.id} className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl hover:bg-[#F9FAFB] transition-colors">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-[#111827] line-clamp-1">{paper.title}</p>
-                      <p className="text-xs text-[#6B7280] mt-0.5">
-                        {paper.authors.slice(0, 2).join(', ')} · {paper.year}
-                      </p>
+                searchedPapers.map(paper => {
+                  const isAlreadyInProject = paperIds.has(paper.id);
+                  return (
+                    <div key={paper.id} className="flex items-center justify-between gap-3 px-4 py-3 rounded-xl hover:bg-[#F9FAFB] transition-colors">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium text-[#111827] line-clamp-1">{paper.title}</p>
+                        <p className="text-xs text-[#6B7280] mt-0.5">
+                          {paper.authors.slice(0, 2).join(', ')} · {paper.year}
+                        </p>
+                      </div>
+                      {isAlreadyInProject ? (
+                        <span className="flex items-center gap-1 px-3 py-1.5 bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-lg flex-shrink-0">
+                          <Check className="w-3.5 h-3.5" /> Added
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => handleAddPaper(paper.id)}
+                          disabled={adding === paper.id}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1E40AF] text-white text-xs font-medium rounded-lg hover:bg-[#1E3A8A] disabled:opacity-50 flex-shrink-0"
+                        >
+                          {adding === paper.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
+                          Add
+                        </button>
+                      )}
                     </div>
-                    <button
-                      onClick={() => handleAddPaper(paper.id)}
-                      disabled={adding === paper.id}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1E40AF] text-white text-xs font-medium rounded-lg hover:bg-[#1E3A8A] disabled:opacity-50 flex-shrink-0"
-                    >
-                      {adding === paper.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />}
-                      Add
-                    </button>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
