@@ -1,6 +1,6 @@
-# Abstracts: AI-Powered Research Discovery 🚀
+# Abstracts: AI-Powered Research Discovery 
 
-Abstracts is a comprehensive web application designed for students and researchers to discover, organize, and discuss academic papers. It leverages AI-augmented workflows and personalized feeds to streamline every stage of research.
+Abstracts is a comprehensive web application designed for students and researchers to discover, organize, and discuss academic papers. It leverages AI-augmented workflows, multi-tenant caching, and personalized feeds to streamline every stage of research.
 
 ---
 
@@ -19,7 +19,8 @@ Abstracts is a comprehensive web application designed for students and researche
 - **MongoDB Atlas**: Scalable NoSQL database for flexible data modeling.
 - **Mongoose**: Elegant object modeling for Node.js.
 - **JWT & BcryptJS**: Secure authentication and password hashing.
-- **Multer**: Handling multipart form data for file uploads.
+- **Multer & SVG Sanitizer**: Handling multipart form data and safe file uploads.
+- **Groq SDK & Google Generative AI**: Fast AI paper recommendations and contextual chat reasoning.
 - **Firebase Admin SDK**: Google Sign-In authentication integration.
 
 ---
@@ -32,7 +33,9 @@ graph TD
     User((User)) -->|Interacts| Frontend[React App]
     Frontend -->|API Requests| Backend[Express Server]
     Backend -->|Queries| MongoDB[(MongoDB Atlas)]
-    Backend -->|External Search| SemanticScholar[Semantic Scholar API]
+    Backend -->|Primary Search| SemanticScholar[Semantic Scholar API]
+    Backend -->|Fallback Search| OpenAlex[OpenAlex API]
+    Backend -->|AI Inferences| AIProviders[Groq & Gemini APIs]
     Backend -->|Stores/Deletes| Storage[File System /uploads]
     Frontend -->|Auth| Firebase[Firebase Auth]
 ```
@@ -71,12 +74,15 @@ const UserSchema = new mongoose.Schema({
 
 ## ✨ Core Features
 
-### 1. Paper Discovery
-Users can search millions of papers via the **Semantic Scholar API** integration. Papers can be previewed, saved to the library, or imported directly into the local database.
+### 1. Paper Discovery & Staged Filtering
+Users can search millions of papers via the **Semantic Scholar API** integration with automatic **OpenAlex API** fallback for high availability.
+- **Staged Filter Selection**: `SearchFilter` allows filtering by author and publication year. Filters are staged locally and applied explicitly via an **Apply Filters** button to avoid triggering excessive API calls.
+- **Request Cancellation Guard**: Implements `AbortController` in search workflows to cancel outdated requests during fast query changes.
 
 ### 2. Research Library & Projects
 - **Library**: Centralized view of all imported and saved papers with sort/search.
 - **Projects**: Specialized workspaces to group papers by topic (e.g., "Deep Learning", "Bioinformatics").
+- **Visual Feedback**: Project paper selection modals render green **"Added ✓"** badges for papers already in a project, providing immediate visual feedback.
 - **Reading Progress**: Track exactly how much of a paper has been read.
 
 ### 3. 🗞 For You — Personalized Feed
@@ -97,8 +103,11 @@ New users are prompted with an **Interests Selection Modal** on first login:
 - Interests are saved to the user profile and used to drive the For You feed.
 - Accessible from **Settings → Research Interests** to update at any time.
 
-### 5. AI Chat Assistant
-A persistent sidebar allows users to chat with an AI assistant for summarizing abstracts, explaining complex concepts, or generating citations.
+### 5. AI Chat Assistant & Reasoning Engine
+A persistent sidebar powered by Groq SDK and Gemini for summarizing abstracts, explaining complex concepts, or generating citations:
+- Customizable temperature controls governing AI response determinism.
+- Enhanced reasoning prompts for domain-tailored research paper recommendations.
+- Dynamic online status indicator showing AI service connectivity.
 
 ### 6. Community Collaboration
 Discussion forums (Communities) divided by research subjects where users can post insights and attach papers for peer review.
@@ -147,11 +156,27 @@ Integrated Firebase Analytics to automatically track user behavior and engagemen
 - **Why**: Prevents Insecure Direct Object Reference (IDOR) attacks, where users manipulate IDs in the API to delete data belonging to other users.
 - **How**: Implemented in controllers (e.g., `communityController.js` `deletePost`) by strictly comparing the `post.user_id` against the authenticated `req.userId`.
 
-### 7. File Upload Restrictions
-- **What**: Strictly limits the size and type of user file uploads.
-- **Why**: Prevents server memory exhaustion (DoS) and blocks the upload of malicious executable scripts.
-- **How**: Uses `multer` configuration in `server/routes/upload.js` to enforce a 50MB file size limit and explicit MIME-type checking (allowing only PDFs and specific Image formats).
+### 7. File Upload Restrictions & SVG Validation
+- **What**: Strictly limits size/type of file uploads and validates SVG XML structure.
+- **Why**: Prevents server memory exhaustion and stops stored XSS execution via malicious SVG payload script tags.
+- **How**: Configured `multer` in `server/routes/upload.js` with a 50MB limit, strict MIME verification, and XML parsing checks for vector graphic uploads.
 
+### 8. Multi-Tenant Search Cache Isolation
+- **What**: Scopes search query cache keys by `req.userId`.
+- **Why**: Guarantees tenant isolation and prevents cross-user cache data leakage in multi-user environments.
+- **How**: Implemented `getCacheKey(q, limit, offset, year, sort, userId)` in `server/controllers/searchController.js`.
+
+### 9. ReDoS Attack Mitigation
+- **What**: Escapes user search inputs before constructing regular expressions.
+- **Why**: Protects the server event loop from catastrophic backtracking caused by malicious regex characters.
+- **How**: Utility function `escapeRegex(str)` neutralizes regex special characters before query execution.
+
+### 10. Password Parity & Credential Hardening
+- **What**: Enforces uniform password length rules across registration and profile updates.
+- **Why**: Eliminates validation gaps between new account registration and account updates.
+- **How**: Applied centralized password validation rules in `server/routes/user.js` and `authController.js`.
+
+---
 
 ## 🧭 Navigation
 
@@ -161,7 +186,7 @@ Integrated Firebase Analytics to automatically track user behavior and engagemen
 | Projects | 📁 FolderOpen | Grouped research workspaces |
 | Saved Papers | 🔖 BookmarkCheck | User's personal bookmarks |
 | **For You** | 📰 Newspaper | **Personalized interest-based paper feed** |
-| Discover | 🌐 Globe | Search Semantic Scholar |
+| Discover | 🌐 Globe | Search Semantic Scholar & OpenAlex |
 | Community | 👥 Users | Discussion forums |
 | Settings | ⚙️ Settings | Profile, interests, theme |
 
@@ -186,6 +211,39 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   const response = await fetch(`${BASE_URL}${endpoint}`, config);
   return await response.json();
 }
+```
+
+### Multi-Tenant Scoped Search Cache Key
+```javascript
+// server/controllers/searchController.js
+function getCacheKey(q, limit, offset, year, sort, userId = 'public') {
+  return `${userId}_${q.trim().toLowerCase()}_${limit}_${offset}_${year || ''}_${sort || ''}`;
+}
+```
+
+### Staged Client-Side Filtering
+```typescript
+// src/app/utils/filterUtils.ts
+export function filterPapers<T extends { authors: string[], year: string }>(
+  papers: T[],
+  criteria: FilterCriteria
+): T[] {
+  return papers.filter(paper => {
+    const authorMatch = !criteria.authors?.length || paper.authors.some(a => criteria.authors.includes(a));
+    const yearMatch = !criteria.years?.length || criteria.years.includes(paper.year);
+    return authorMatch && yearMatch;
+  });
+}
+```
+
+### AbortController Cancellation Guard
+```typescript
+// src/app/components/DiscoverView.tsx
+useEffect(() => {
+  const controller = new AbortController();
+  fetchSearchResults(query, { signal: controller.signal });
+  return () => controller.abort();
+}, [query]);
 ```
 
 ### Interests Onboarding — Saving to Profile
@@ -224,24 +282,6 @@ userInterests.forEach(async (interest, idx) => {
 </div>
 ```
 
-### Permanent Deletion & Storage Cleanup
-```javascript
-// server/controllers/papersController.js
-export const deletePaper = async (req, res) => {
-  const existing = await Paper.findById(req.params.id);
-
-  const uploads = await Upload.find({ paper_id: existing._id });
-  for (const upload of uploads) {
-    const filePath = path.join(__dirname, '..', 'uploads', upload.filename);
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    await Upload.deleteOne({ _id: upload._id });
-  }
-
-  await Paper.deleteOne({ _id: existing._id });
-  await SavedPaper.deleteMany({ paper_id: existing._id });
-};
-```
-
 ---
 
 ## 🎨 Design Philosophy
@@ -265,6 +305,8 @@ The project is configured for **Vercel** (`vercel.json`), utilizing serverless f
 3. **Environment**: Managed through standard `.env` variables:
    - `MONGODB_URI` — MongoDB Atlas connection string
    - `JWT_SECRET` — Token signing key
+   - `GROQ_API_KEY` — Groq AI API key for fast inference
+   - `GEMINI_API_KEY` — Google Gemini API key
    - `FIREBASE_*` — Firebase Admin SDK credentials (for Google Sign-In)
 
 ---
@@ -274,12 +316,17 @@ The project is configured for **Vercel** (`vercel.json`), utilizing serverless f
 | File | Purpose |
 |---|---|
 | `src/app/App.tsx` | Root — routing, auth state, keep-alive tab layout |
+| `src/app/components/DiscoverView.tsx` | Search UI with AbortController guards & Semantic Scholar/OpenAlex integration |
+| `src/app/components/SearchFilter.tsx` | Staged filter selection modal with explicit 'Apply Filters' action |
+| `src/app/components/ProjectDetailView.tsx` | Project detail & workspace manager with 'Added ✓' badges |
 | `src/app/components/InterestsModal.tsx` | Onboarding modal — 71 domains, image cards, custom input |
 | `src/app/components/ForYouView.tsx` | Personalized paper feed by interest |
-| `src/app/components/DiscoverView.tsx` | Semantic Scholar search UI |
+| `src/app/components/AIChatSidebar.tsx` | AI chat sidebar with live status indicator |
 | `src/app/components/SettingsView.tsx` | Profile settings + interests editor |
-| `src/app/components/LeftSidebar.tsx` | Navigation sidebar |
+| `src/app/utils/filterUtils.ts` | Client-side paper filtering by author/year |
 | `src/app/services/api.ts` | Centralized API client + TypeScript types |
-| `server/models/index.js` | Mongoose schemas (User, Paper, Project, Community…) |
-| `server/controllers/userController.js` | User profile CRUD including interests |
+| `server/controllers/aiController.js` | Groq & Gemini AI paper recommendation engine |
+| `server/controllers/chatController.js` | AI chat endpoint with temperature management |
+| `server/controllers/searchController.js` | Paper discovery API with user-scoped caching & ReDoS protection |
+| `server/controllers/userController.js` | User profile CRUD including interests & validation |
 | `server/controllers/papersController.js` | Paper CRUD + physical file cleanup |
