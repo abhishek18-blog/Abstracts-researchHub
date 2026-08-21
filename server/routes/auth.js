@@ -21,12 +21,16 @@ const authRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
-
+// web routes
 router.post('/register', authRateLimiter, register);
 router.post('/login', authRateLimiter, login);
 router.post('/logout', logout);
 router.post('/google', authRateLimiter, googleLogin);
+
+// mobile routes
 router.post('/google-mobile', googleMobileLogin);
+
+
 router.post('/forgot-password', authRateLimiter, forgotPassword);
 router.post('/make-admin', authMiddleware, makeAdmin);
 router.get('/me', authMiddleware, getMe);
