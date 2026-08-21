@@ -2,6 +2,7 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { register, login, logout, getMe, forgotPassword, googleLogin, makeAdmin } from '../controllers/authController.js';
 import { authMiddleware } from '../middleware/index.js';
+import { googleMobileLogin } from '../controllers/mobileAuthController.js';
 
 const router = express.Router();
 
@@ -25,6 +26,7 @@ router.post('/register', authRateLimiter, register);
 router.post('/login', authRateLimiter, login);
 router.post('/logout', logout);
 router.post('/google', authRateLimiter, googleLogin);
+router.post('/google-mobile', googleMobileLogin);
 router.post('/forgot-password', authRateLimiter, forgotPassword);
 router.post('/make-admin', authMiddleware, makeAdmin);
 router.get('/me', authMiddleware, getMe);
