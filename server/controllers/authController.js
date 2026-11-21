@@ -109,10 +109,18 @@ export const register = async (req, res) => {
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
+    const normalizedEmail = email.toLowerCase().trim();
     
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: normalizedEmail });
     if (!user) {
       return res.status(401).json({ success: false, error: 'Invalid credentials' });
+    }
+
+    if (user.password === '') {
+      return res.status(401).json({ 
+        success: false, 
+        error: 'This account was created using Google. Please use the "Continue with Google" button to sign in.' 
+      });
     }
 
     // ============================================================================
@@ -295,6 +303,9 @@ export const googleLogin = async (req, res) => {
     res.status(401).json({ success: false, error: 'Failed to verify Google Token' });
   }
 };
+
+
+
 
 
 // ─────────────────────────────────────────────
