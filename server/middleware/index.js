@@ -20,11 +20,6 @@ if (!JWT_SECRET) {
 // even if an attacker executes XSS on the page, they cannot extract the JWT token.
 // ============================================================================
 export function authMiddleware(req, res, next) {
-  // Allow public access to paper search
-  if (req.method === 'GET' && req.originalUrl.startsWith('/api/search/papers')) {
-    return next();
-  }
-
   let token = null;
 
   // Option A: Extract token from Authorization header (Bearer token format)
@@ -42,14 +37,29 @@ export function authMiddleware(req, res, next) {
     token = parsedCookies.token;
   }
 
+  // Allow public read access to paper search and community discovery
+  const isPublicRead = req.method === 'GET' && (
+    req.originalUrl.startsWith('/api/search/papers') ||
+    req.originalUrl.startsWith('/api/community')
+  );
+
   if (token) {
     try {
       const decoded = jwt.verify(token, JWT_SECRET);
       req.userId = decoded.id;
       return next();
     } catch (err) {
+      if (isPublicRead) {
+        req.userId = null;
+        return next();
+      }
       return res.status(401).json({ success: false, error: 'Invalid or expired token' });
     }
+  }
+
+  if (isPublicRead) {
+    req.userId = null;
+    return next();
   }
 
   // [SECURITY - C3]: Removed x-user-id header fallback.

@@ -1,0 +1,1055 @@
+================================================================================
+           VIVA / RECRUITER Q&A — ABSTRACTS: AI-POWERED RESEARCH HUB
+              Full-Stack Developer Role — Interview Preparation
+================================================================================
+
+PROJECT SUMMARY (Quick Pitch)
+------------------------------
+"Abstracts" is a full-stack web application for students and researchers to
+discover, organise, and discuss academic papers. The frontend is built in
+React 18 + TypeScript + Tailwind CSS (Vite), and the backend is Node.js +
+Express + MongoDB Atlas. It integrates external AI APIs (Groq & Gemini),
+third-party academic APIs (Semantic Scholar, OpenAlex), Firebase Auth for
+Google Sign-In, and is deployed on Vercel.
+
+================================================================================
+                         SECTION 1 — PROJECT OVERVIEW
+================================================================================
+
+Q1. Tell me about this project. What does it do and why did you build it?
+--------------------------------------------------------------------------
+A:  Abstracts is an AI-powered Research Discovery Platform designed for students
+    and researchers. The problem it solves is simple: finding, organising, and
+    understanding academic papers is time-consuming. I built it to give users:
+
+    1. Intelligent search across millions of papers via Semantic Scholar and
+       OpenAlex as a fallback.
+    2. A personalised "For You" feed based on up to 4 research interests the
+       user picks during onboarding.
+    3. An integrated AI assistant (powered by Groq and Gemini) to summarise
+       abstracts and answer research questions.
+    4. A community layer — discussion forums segmented by research topic.
+    5. Project workspaces to group papers by theme with reading-progress tracking.
+
+    The project demonstrates end-to-end full-stack skills: REST API design,
+    authentication, database modelling, third-party API integration, security,
+    and deployment.
+
+---
+
+Q2. What is your overall system architecture?
+---------------------------------------------
+A:  The architecture follows a classic three-tier model with external services:
+
+    React/Vite Frontend  ←→  Express REST API  ←→  MongoDB Atlas (Database)
+                                    ↕
+              Semantic Scholar API  /  OpenAlex API  (paper search)
+                                    ↕
+              Groq SDK  /  Google Gemini API  (AI inference)
+                                    ↕
+              Firebase Admin SDK  (Google Sign-In token verification)
+                                    ↕
+              Local /uploads  (avatar + PDF file storage)
+
+    The frontend is a SPA (Single-Page Application) deployed as a static build
+    on Vercel. The backend is an Express app exposed as Vercel serverless
+    functions. Both communicate over HTTPS using JSON REST APIs with JWT tokens.
+
+---
+
+Q3. What tech stack did you choose and why?
+-------------------------------------------
+A:
+    FRONTEND:
+    - React 18       — Industry-standard, hooks-based, great ecosystem.
+    - TypeScript     — Catch bugs at compile time; better DX with strict types.
+    - Vite           — Much faster HMR and cold-start than CRA/Webpack.
+    - Tailwind CSS v4 — Utility-first, no CSS bloat, easy dark-mode.
+    - Radix UI       — Accessible, unstyled primitives (modals, tabs, dropdowns).
+    - React Router v7 — Client-side routing.
+    - React Hook Form — Performant forms with minimal re-renders.
+    - Recharts       — Data visualisation (analytics dashboard).
+    - Framer Motion  — Smooth animations and micro-interactions.
+
+    BACKEND:
+    - Node.js + Express — Non-blocking I/O, perfect for API-heavy workloads.
+    - MongoDB + Mongoose — Flexible schema for varied paper metadata.
+    - JWT + Bcrypt    — Stateless auth and secure password hashing.
+    - Helmet          — 11 essential HTTP security headers out-of-the-box.
+    - Express-Rate-Limit — Brute-force and DoS protection.
+    - Multer          — Multipart form-data for PDF and avatar uploads.
+    - Nodemailer      — Email notifications (password reset).
+    - XSS library     — Input sanitisation before DB writes.
+    - Firebase Admin  — Server-side Google Sign-In token verification.
+
+    DEPLOYMENT:
+    - Vercel          — Zero-config CI/CD, preview deployments, edge CDN.
+    - MongoDB Atlas   — Managed cloud database with auto-scaling.
+
+================================================================================
+                    SECTION 2 — FRONTEND DEEP-DIVE
+================================================================================
+
+Q4. How did you handle state management in React?
+-------------------------------------------------
+A:  I deliberately avoided heavy libraries like Redux because the state in
+    Abstracts is mostly "server state" (fetched data) with minimal shared
+    global UI state. My approach:
+
+    - Local useState / useReducer for component-level state (search input,
+      modal open/close, loading flags).
+    - Props drilling kept shallow by co-locating state close to where it's used.
+    - Context API only for cross-cutting concerns like theme and auth user.
+    - Services layer (src/app/services/api.ts) as a centralised API client —
+      all fetch calls, TypeScript types, and base-URL config live there.
+
+    This keeps the app simple, debuggable, and avoids over-engineering.
+
+---
+
+Q5. What is the "Keep-Alive Tab" architecture you used?
+--------------------------------------------------------
+A:  Switching tabs in a normal SPA unmounts the component, destroying local
+    state (search results, scroll position, etc.). To preserve this, I mount
+    ForYouView and DiscoverView *permanently* in the DOM and toggle visibility
+    with CSS (flex / hidden classes) rather than React conditional rendering.
+
+    Example from App.tsx:
+      <div className={`flex-1 overflow-hidden ${activeTab === 'foryou' ? 'flex' : 'hidden'}`}>
+        <ForYouView ... />
+      </div>
+
+    This means a user can search for "transformers", switch to the community
+    tab, come back, and see their results exactly as they left them — without
+    a re-fetch. It's a UX win with minimal engineering overhead.
+
+---
+
+Q6. How does the "For You" personalised feed work?
+---------------------------------------------------
+A:  1. On first login, an Interests Onboarding Modal shows 71 research domains
+       (with Unsplash background images). The user picks up to 4 interests.
+    2. The interests are saved to MongoDB via PATCH /api/users/profile.
+    3. On the For You page mount, the app iterates over the user's interests
+       and fires one Semantic Scholar API call per interest in parallel using
+       Promise.all / forEach async.
+    4. Each interest maps to a horizontally scrollable card row. Papers are
+       displayed as cards with Import (save to library) and Open (source URL)
+       actions.
+    5. A Refresh button re-fetches all feeds on demand.
+    6. An empty state guides new users to Settings → Research Interests.
+
+---
+
+Q7. How did you prevent excessive API calls during search?
+----------------------------------------------------------
+A:  Two mechanisms:
+
+    1. AbortController — Every time the search query changes, I create a new
+       AbortController and pass its signal to the fetch call. The useEffect
+       cleanup function calls controller.abort(), cancelling any in-flight
+       request from the *previous* query. This avoids race conditions where a
+       slow older response overwrites a newer one.
+
+       Example:
+         useEffect(() => {
+           const controller = new AbortController();
+           fetchSearchResults(query, { signal: controller.signal });
+           return () => controller.abort();
+         }, [query]);
+
+    2. Staged Filter Selection — Filters (author, year) are stored in local
+       pending state and only applied when the user clicks "Apply Filters".
+       This prevents a new API call on every checkbox tick.
+
+---
+
+Q8. How did you implement the dark/light mode?
+----------------------------------------------
+A:  I used the next-themes library paired with CSS custom properties defined in
+    theme.css and toggled via a data-theme attribute. Tailwind's dark: variant
+    reads this and applies the correct utility classes. The user's preference
+    is persisted in localStorage by next-themes automatically.
+
+    Design tokens use a colour palette of deep blues (#1e40af, #3b82f6, #030213)
+    with glassmorphism effects (backdrop-blur) on modals and sidebars.
+
+---
+
+Q9. How did you make the UI accessible?
+----------------------------------------
+A:  - Used Radix UI primitives which handle ARIA roles, keyboard navigation,
+      and focus management out-of-the-box (dialogs, dropdowns, checkboxes).
+    - All icon-only buttons have aria-label attributes.
+    - Focus-visible rings are preserved for keyboard users.
+    - Semantic HTML — headings are properly hierarchical, forms use <label>.
+    - Colour contrast ratios follow WCAG AA guidelines in both themes.
+
+================================================================================
+                    SECTION 3 — BACKEND DEEP-DIVE
+================================================================================
+
+Q10. Walk me through the folder structure of your backend.
+----------------------------------------------------------
+A:  server/
+    ├── index.js            — Entry point: middleware chain, route mounting
+    ├── database.js         — Mongoose connection setup
+    ├── firebaseAdmin.js    — Firebase Admin SDK initialisation
+    ├── middleware/
+    │   └── index.js        — authMiddleware, csrfProtection, errorHandler,
+    │                         requestLogger
+    ├── routes/             — Express Routers (thin, delegate to controllers)
+    │   ├── auth.js, papers.js, projects.js, chat.js, user.js,
+    │       stats.js, community.js, search.js, ai.js
+    ├── controllers/        — Business logic (fat controllers)
+    │   ├── authController.js, papersController.js, searchController.js,
+    │       userController.js, projectsController.js, communityController.js,
+    │       chatController.js, aiController.js, statsController.js
+    ├── models/
+    │   └── index.js        — All Mongoose schemas (User, Paper, Project, etc.)
+    └── utils/
+        ├── email.js        — Nodemailer helpers
+        └── filterUtils.js  — Server-side filter utilities
+
+    I use the MVC pattern: routes define endpoints, controllers contain logic,
+    models define schemas. This keeps each file small and focused.
+
+---
+
+Q11. How does authentication work in this project?
+--------------------------------------------------
+A:  Two auth paths:
+
+    PATH 1 — Email / Password (Traditional):
+      1. Register: User submits name, email, password.
+      2. Password is hashed with bcryptjs (10 salt rounds) — never stored plain.
+      3. A JWT is signed with JWT_SECRET and returned.
+      4. The JWT is set as an HttpOnly cookie AND returned in the JSON response
+         body so both browsers and API clients (mobile/Postman) work.
+      5. Every subsequent request: authMiddleware extracts the token from the
+         Authorization: Bearer header or the HttpOnly cookie, verifies it
+         with jwt.verify(), and attaches userId to req.userId.
+
+    PATH 2 — Google Sign-In (Firebase OAuth):
+      1. Frontend uses Firebase Auth SDK to trigger Google Sign-In.
+      2. Firebase returns an ID token to the frontend.
+      3. Frontend sends the ID token to POST /api/auth/google-login.
+      4. Backend calls admin.auth().verifyIdToken(idToken) — verifies the
+         token cryptographically with Google's public keys.
+      5. If the email doesn't exist in MongoDB, a new user document is created.
+      6. A JWT is issued exactly as in Path 1, maintaining a single auth layer.
+
+---
+
+Q12. Why did you use HttpOnly cookies for the JWT instead of localStorage?
+---------------------------------------------------------------------------
+A:  localStorage is readable by JavaScript — if an attacker injects malicious
+    JS (XSS), they can steal the token with `localStorage.getItem('token')`.
+
+    HttpOnly cookies cannot be read by JavaScript at all (the browser enforces
+    this). So even if XSS runs on the page, it cannot access the session token.
+
+    I support both methods:
+    - Header-based (Authorization: Bearer) for API clients / mobile apps.
+    - HttpOnly Cookie for browsers — the more secure path.
+
+---
+
+Q13. How did you implement security in the backend?
+---------------------------------------------------
+A:  I implemented 7 layers of security:
+
+    1. HELMET — Sets 11 HTTP security headers automatically. Prevents
+       Clickjacking (X-Frame-Options), MIME-sniffing, and hides
+       X-Powered-By: Express from attackers.
+
+    2. XSS PREVENTION — User-submitted text (community posts) passes through
+       the `xss` library before DB writes. Malicious <script> tags are
+       neutralised and rendered as plain text.
+
+    3. COMMUNITY RATE LIMITING — POST /api/community/:id/posts is limited to
+       5 requests/minute per IP using express-rate-limit. Prevents spam bots
+       and localised DoS.
+
+    4. AUTH RATE LIMITING — Login and register endpoints allow only 5 attempts
+       per 15 minutes per IP. Makes brute-force attacks impractical.
+
+    5. JWT + BCRYPT — Stateless sessions. Bcrypt with 10 salt rounds means
+       even if the database leaks, cracking passwords takes centuries per hash.
+
+    6. IDOR PREVENTION — Before any resource update/delete, I check that
+       req.userId === resource.createdBy. A user cannot modify another user's
+       paper, project, or community post even by guessing the MongoDB ObjectId.
+
+    7. CSRF PROTECTION — A custom middleware validates the Origin/Referer header
+       on all state-mutating requests (POST/PUT/DELETE/PATCH). Requests from
+       non-whitelisted origins are rejected with 403 Forbidden.
+
+    8. INPUT VALIDATION — All endpoints validate required fields and check
+       length limits (e.g., name ≤ 100 chars) before touching the database.
+
+    9. PRODUCTION ERROR MASKING — The error handler returns raw error messages
+       only in development. In production, it returns "Internal server error"
+       to avoid leaking schema or stack-trace information to attackers.
+
+---
+
+Q14. Explain the search controller and caching.
+-----------------------------------------------
+A:  The search flow:
+    1. Request comes in to GET /api/search/papers?q=transformers&limit=10.
+    2. searchController.js generates a user-scoped cache key:
+         `${userId}_${query}_${limit}_${offset}_${year}_${sort}`
+       For unauthenticated users, userId = 'public'.
+    3. It checks an in-memory Map (or Redis-like TTL cache) for that key.
+    4. Cache HIT → return cached result instantly.
+    5. Cache MISS → fetch from Semantic Scholar API. If that fails or returns
+       0 results, it falls back to the OpenAlex API.
+    6. Result is stored in cache with a TTL and returned to the client.
+
+    Benefits:
+    - Reduces external API calls (rate limits respected).
+    - Sub-millisecond response for repeated queries.
+    - User-scoped keys so one user's cache doesn't bleed into another's.
+
+    I also implemented a ReDoS (Regular Expression DoS) protection by
+    validating and sanitising the search query before using it in any regex.
+
+---
+
+Q15. How did you handle file uploads?
+--------------------------------------
+A:  I used Multer middleware with two configurations:
+
+    PDF uploads (papers):
+    - diskStorage with destination: server/uploads/
+    - File filter: only PDF MIME types accepted, otherwise 400 error.
+    - Size limit: 50 MB enforced by Multer (returns 413 if exceeded).
+    - Filename: UUID v4 + .pdf to prevent directory traversal and name clashes.
+
+    Avatar uploads (profile images):
+    - Same pattern, but MIME filter accepts image/jpeg, image/png, image/webp.
+    - The old avatar file is deleted from disk when a new one is uploaded.
+
+    On paper deletion, the controller physically removes the file from the
+    filesystem using fs.unlink() to prevent orphaned files accumulating.
+
+---
+
+Q16. How does the AI chat feature work?
+---------------------------------------
+A:  The AI chat is powered by two providers:
+
+    PRIMARY — Groq SDK (openai/gpt-oss-120b & fallbacks):
+    - Extremely fast inference (sub-second responses on most queries).
+    - Used for general abstract summarisation and Q&A.
+    - Accepts a system prompt that sets the assistant's persona as a
+      "research expert" for domain-tailored answers.
+
+    SECONDARY — Google Gemini API:
+    - Used for paper recommendations and more complex reasoning.
+    - Configured via @google/generative-ai SDK.
+
+    The chatController.js endpoint:
+    1. Receives the user's message and conversation history.
+    2. Prepends a research-domain system prompt.
+    3. Calls the appropriate provider based on the request type.
+    4. Streams (or returns) the response back.
+    5. Accepts a `temperature` parameter so users can control response
+       creativity vs. determinism from the frontend slider.
+
+    The AIChatSidebar in the frontend shows a live "online/offline" indicator
+    that polls the AI service health endpoint.
+
+================================================================================
+                SECTION 4 — DATABASE & DATA MODELLING
+================================================================================
+
+Q17. Why did you choose MongoDB over a relational database like PostgreSQL?
+---------------------------------------------------------------------------
+A:  The primary data — academic papers from Semantic Scholar — has highly
+    variable schemas. Some papers have authors, DOIs, abstracts, citation counts;
+    others have none of these fields. Forcing that into a rigid SQL schema would
+    require many nullable columns or normalisation into many JOIN tables.
+
+    MongoDB's flexible document model lets me store exactly what the API
+    returns without migration overhead. The rest of the data (users, projects,
+    communities) is modelled with Mongoose schemas that provide structure
+    where needed and flexibility where useful.
+
+    Trade-off acknowledged: MongoDB lacks ACID transactions across documents
+    by default (though Mongoose 9 supports sessions). For this use case —
+    research paper bookmarking — eventual consistency is acceptable.
+
+---
+
+Q18. Describe your database schema / data model.
+-------------------------------------------------
+A:  Core entities:
+
+    USER
+    - name, email, passwordHash, role, interests: [String] (up to 4)
+    - hasSelectedInterests: Boolean
+    - avatar: String (filename), stats (searchCount, papersRead, etc.)
+
+    PROJECT (owned by a User)
+    - title, description, papers: [ObjectId ref Paper], createdBy
+
+    SAVED_PAPER (a user's library entry)
+    - userId, paperId (external Semantic Scholar ID), title, authors,
+      abstract, year, url — denormalised for fast library rendering.
+
+    READING_PROGRESS
+    - userId, paperId, progress: Number (0-100)
+
+    COMMUNITY
+    - name, description, members: [userId], posts: [CommunityPost]
+
+    COMMUNITY_POST
+    - content (XSS-sanitised), authorId, attachedPapers: [paperId],
+      createdAt
+
+    Relationships:
+    USER  1──* PROJECT
+    USER  1──* SAVED_PAPER
+    USER  *──* COMMUNITY (members array)
+    PAPER 1──* READING_PROGRESS
+
+================================================================================
+                    SECTION 5 — DEPLOYMENT & DEVOPS
+================================================================================
+
+Q19. How did you deploy this project?
+--------------------------------------
+A:  Frontend:
+    - Built with `vite build` → outputs a static dist/ folder.
+    - Deployed to Vercel. Vercel detects the Vite config and runs the build
+      automatically on every git push to main.
+    - vercel.json configures rewrites so the SPA's client-side routes don't
+      return 404 on direct URL access.
+
+    Backend:
+    - The Express server is adapted as Vercel serverless functions via the
+      vercel.json routes configuration.
+    - Environment variables (MONGODB_URI, JWT_SECRET, GROQ_API_KEY,
+      GEMINI_API_KEY, FIREBASE_* credentials) are set in Vercel's project
+      settings — never committed to git.
+
+    Database:
+    - MongoDB Atlas (cloud-managed) — no server to maintain, auto-scaling,
+      built-in backups, and a free tier for development.
+
+    Deployment URL: https://abstracts-research-hub.vercel.app
+
+---
+
+Q20. How do you manage environment variables securely?
+------------------------------------------------------
+A:  - All secrets live in .env files locally (excluded via .gitignore).
+    - In production, they're set as Vercel environment variables in the
+      dashboard — never in code.
+    - The server fails loudly (process.exit(1)) if JWT_SECRET is undefined
+      at startup — no silent fallback that could create a security hole.
+    - Firebase service-account credentials are loaded from env vars
+      (FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY)
+      rather than a committed JSON file.
+
+================================================================================
+                SECTION 6 — PERFORMANCE & OPTIMISATION
+================================================================================
+
+Q21. What performance optimisations did you implement?
+------------------------------------------------------
+A:
+    FRONTEND:
+    1. Keep-Alive Tabs — ForYouView and DiscoverView stay mounted; no re-fetch
+       on tab switch.
+    2. AbortController — Stale in-flight requests are cancelled immediately,
+       freeing network bandwidth.
+    3. Parallel Fetching — For You feed fires all interest fetches simultaneously
+       with forEach async rather than awaiting them sequentially.
+    4. Skeleton Loaders — `bg-muted animate-pulse` placeholder cards shown
+       during data fetching — perceived performance improvement.
+    5. Vite Code Splitting — Vite automatically splits vendor chunks for
+       better browser caching.
+
+    BACKEND:
+    1. User-scoped In-Memory Cache — Repeated searches return cached results
+       instantly, reducing external API calls and latency.
+    2. Request Cancellation — Stale search requests are aborted at the
+       frontend before they hit the backend.
+    3. Mongoose lean() — For read-only queries, using .lean() returns plain
+       JS objects instead of full Mongoose documents, reducing memory usage.
+
+================================================================================
+                    SECTION 7 — GENERAL FULLSTACK QUESTIONS
+================================================================================
+
+Q22. What is CORS and how did you handle it?
+--------------------------------------------
+A:  CORS (Cross-Origin Resource Sharing) is a browser security mechanism that
+    blocks frontend JavaScript from reading responses from a different origin
+    (domain/port). Since my frontend (localhost:5173 / vercel.app) and backend
+    (localhost:3001 / render.com) are on different origins, I need to explicitly
+    allow the connection.
+
+    I used the `cors` npm package in index.js with a whitelist of allowed
+    origins. The middleware checks the incoming Origin header and either
+    grants or denies it. credentials: true is required because we're sending
+    cookies (HttpOnly JWT) across origins.
+
+---
+
+Q23. What is the difference between authentication and authorisation?
+---------------------------------------------------------------------
+A:  Authentication = "Who are you?" — verifying identity (login, JWT verification).
+    Authorisation  = "What can you do?" — checking permissions after identity is known.
+
+    In this project:
+    - Authentication: authMiddleware verifies the JWT and sets req.userId.
+    - Authorisation: Each controller checks if req.userId matches the resource
+      owner before allowing updates or deletes. This is IDOR prevention.
+
+---
+
+Q24. How would you scale this application if it had 100,000 users?
+------------------------------------------------------------------
+A:  Current bottlenecks and solutions:
+
+    1. In-Memory Cache → Replace with Redis (shared across multiple server
+       instances). The current Map cache is lost on server restart and not
+       shared between Vercel function instances.
+
+    2. File Storage → Move from local /uploads to AWS S3 or Cloudflare R2
+       (Vercel serverless functions don't persist local filesystem).
+
+    3. Database — Enable MongoDB Atlas auto-scaling. Add indexes on frequently
+       queried fields (userId, email, interests). Use read replicas for
+       analytics queries.
+
+    4. Rate Limiting → Move to Redis-backed rate limiting (express-rate-limit
+       supports Redis store) so limits are enforced across instances.
+
+    5. Search — At very large scale, replace Semantic Scholar pass-through with
+       an Elasticsearch index of ingested papers for sub-100ms full-text search.
+
+    6. Queue for AI requests — Under high load, AI calls could bottleneck the
+       API. A job queue (BullMQ + Redis) would process AI requests asynchronously
+       and stream results back via WebSocket or Server-Sent Events.
+
+---
+
+Q25. What was the hardest technical challenge and how did you solve it?
+----------------------------------------------------------------------
+A:  The hardest challenge was implementing a secure, dual-path authentication
+    system (email/password + Google Sign-In) where both paths produce the same
+    JWT-based session, and tokens are protected from both XSS and CSRF.
+
+    The solution:
+    - XSS protection: Store JWT in an HttpOnly cookie (inaccessible to JS).
+    - CSRF protection: Custom origin-validation middleware blocks cross-site
+      state-mutating requests.
+    - Google Sign-In: Use Firebase Admin SDK on the server to verify Google's
+      ID token cryptographically — never trust the client's claim alone.
+    - Unified session: Both paths produce the same JWT, so all downstream
+      authMiddleware and authorisation logic is identical regardless of
+      how the user logged in.
+
+---
+
+Q26. How did you test the application?
+---------------------------------------
+A:  - Manual testing with Postman for all REST endpoints (auth, CRUD, search).
+    - test-queue.js and test-s2.js are integration test scripts in the server/
+      folder that test the search queue and Semantic Scholar integration.
+    - Frontend tested manually in both light and dark mode across Chrome and
+      Firefox.
+    - Rate limiters tested by scripting rapid requests and confirming 429
+      responses.
+    - Security headers verified with curl -I to inspect Helmet output.
+
+    Improvement I'd add: Jest unit tests for controllers + React Testing Library
+    for component tests.
+
+---
+
+Q27. How did you approach responsive design?
+--------------------------------------------
+A:  Tailwind CSS's mobile-first breakpoints (sm:, md:, lg:) drive the layout.
+    Key choices:
+    - The left sidebar collapses to an icon-only mode on smaller screens.
+    - The community and paper card grids use CSS Grid with auto-fill and
+      minmax() for fluid column counts.
+    - The AI chat sidebar slides in as a drawer on mobile using Vaul
+      (a drawer primitive for Radix UI).
+    - React Responsive Masonry is used for the paper library grid layout,
+      which adapts column count to viewport width automatically.
+
+================================================================================
+                    SECTION 8 — BEHAVIOURAL / SITUATIONAL
+================================================================================
+
+Q28. If a senior developer reviewed your code, what would they say?
+-------------------------------------------------------------------
+A:  Positives they'd likely highlight:
+    - Strong security posture for an individual project (Helmet, JWT HttpOnly
+      cookies, CSRF, rate limiting, IDOR checks, XSS sanitisation).
+    - Clean MVC separation on the backend.
+    - Good use of AbortController for race-condition prevention.
+    - Thoughtful UX decisions like the Keep-Alive tab pattern.
+
+    Areas they'd suggest improving:
+    - Move from in-memory to Redis for production-grade caching.
+    - Add unit and integration tests (Jest, Supertest, RTL).
+    - Implement pagination cursor-based rather than offset for large datasets.
+    - Move file storage to S3 for serverless compatibility.
+    - Add TypeScript types to the backend (currently plain JS).
+
+---
+
+Q29. What would you add if you had 2 more weeks?
+-------------------------------------------------
+A:  1. Real-time collaboration — WebSocket-based live community chat using
+       Socket.io, replacing the current polling approach.
+    2. Citation graph visualisation — A force-directed graph (D3.js or
+       Recharts) showing how papers cite each other within a project.
+    3. PDF in-app reader — Render uploaded PDFs inline with react-pdf,
+       replacing the external link-out.
+    4. Email digest — A weekly Nodemailer digest of top papers in the user's
+       interests, scheduled with node-cron.
+    5. Backend TypeScript — Migrate Express controllers to TypeScript for
+       compile-time safety and better IDE support.
+
+---
+
+Q30. What did you learn from building this full-stack project?
+-------------------------------------------------------------
+A:  1. Security must be designed in from day one, not bolted on. Every feature
+       (file upload, community posts, auth) introduced a new attack surface
+       that required deliberate mitigation.
+    2. The separation of concerns (MVC) pays off quickly — adding a new route
+       was fast because the pattern was established.
+    3. External API reliability is unpredictable. The Semantic Scholar → OpenAlex
+       fallback was essential; without it, search would fail silently.
+    4. UX decisions like Keep-Alive tabs and AbortController feel small but
+       dramatically improve the perceived quality of the app.
+    5. TypeScript on the frontend paid off immediately — caught dozens of type
+       errors that would have been runtime bugs in plain JS.
+
+================================================================================
+          SECTION 9 — CORE REACT QUESTIONS & ANSWERS (Applied to Project)
+================================================================================
+
+Q31. What are React Hooks, and what hooks did you use in this project?
+----------------------------------------------------------------------
+A:  React Hooks are built-in functions introduced in React 16.8 that allow
+    functional components to manage state and lifecycle features without writing
+    class components.
+
+    Hooks used in this project:
+    1. `useState` — Local component state (e.g., search queries, active tabs,
+       modal open/close states, input values in SearchFilter).
+    2. `useEffect` — Side effects like fetching papers on mount in `ForYouView`,
+       binding `AbortController` in `DiscoverView`, and syncing theme changes.
+    3. `useRef` — Direct DOM references or storing mutable values that do NOT
+       trigger a re-render (e.g., keeping track of timeout timers or scroll
+       containers).
+    4. `useCallback` & `useMemo` — Memoising callback handlers and expensive
+       filtering calculations (`filterPapers`) to prevent unnecessary child
+       re-renders.
+    5. React Router hooks (`useNavigate`, `useLocation`) — Programmatic
+       navigation between views (e.g. going from "For You" to "Discover" with
+       a pre-filled domain query).
+
+    Rules of Hooks respected:
+    - Only call hooks at the top level (never inside loops, conditions, or
+      nested functions).
+    - Only call hooks from React function components or custom hooks.
+
+---
+
+Q32. Explain the dependency array in `useEffect`. How did you avoid infinite loops?
+-----------------------------------------------------------------------------------
+A:  The dependency array tells React when to re-execute the effect function:
+    - No array (`useEffect(fn)`): Runs after EVERY render.
+    - Empty array (`useEffect(fn, [])`): Runs ONCE when component mounts.
+    - Array with values (`useEffect(fn, [query, userInterests])`): Runs on
+      mount and whenever any value in the array changes (by shallow equality
+      comparison `Object.is`).
+
+    How I avoided infinite loops:
+    - Infinite loops happen when an effect updates a state variable that is also
+      in its own dependency array.
+    - In `ForYouView.tsx`, feeds are stored in state. When updating feeds, I used
+      the functional state updater form `setFeeds(prev => prev.map(...))` rather
+      than putting `feeds` into the dependency array.
+    - In `DiscoverView.tsx`, the search effect depends strictly on `[query]`.
+      Search results are stored separately and do not trigger the search effect.
+
+---
+
+Q33. Why is the `key` prop essential in lists, and why shouldn't we use array index?
+------------------------------------------------------------------------------------
+A:  The `key` prop helps React's Virtual DOM reconciliation algorithm identify
+    which items in a list have changed, been added, or been removed.
+
+    In my project:
+    - For paper lists, I use unique IDs: `<PaperCard key={paper.paperId || paper._id} />`
+    - For interest tags, I use unique strings: `<Badge key={interest} />`
+
+    Why avoid index (`key={index}`):
+    - If papers are filtered, re-ordered, or deleted, using the index can cause
+      component state mismatches, incorrect input focus, and broken animations
+      because React reuses DOM nodes based on index rather than item identity.
+
+---
+
+Q34. What are Controlled vs Uncontrolled components? Give examples from your app.
+---------------------------------------------------------------------------------
+A:  - CONTROLLED COMPONENT: Form data is controlled by React state. The input's
+      value is driven by state, and changes go through an `onChange` handler.
+      Example in project: The search bar in `DiscoverView` and domain input in
+      `InterestsModal`:
+        `<input value={query} onChange={(e) => setQuery(e.target.value)} />`
+      Benefits: Instant validation, disabled state control, single source of truth.
+
+    - UNCONTROLLED COMPONENT: Form data is handled directly by the DOM. You pull
+      values using a `ref` when needed.
+      Example in project: File input for PDF / avatar uploads:
+        `<input type="file" ref={fileInputRef} />`
+      Because file inputs in HTML are read-only for security, they cannot be
+      programmatically set via React state value; thus they are inherently
+      uncontrolled.
+
+---
+
+Q35. How does React's Virtual DOM and Reconciliation work?
+----------------------------------------------------------
+A:  1. When state changes, React creates a new Virtual DOM tree (a lightweight JS
+       object representation of the actual DOM).
+    2. Diffing Algorithm: React compares (diffs) the new Virtual DOM with the
+       previous snapshot.
+    3. Reconciliation: React calculates the minimum number of real DOM mutations
+       needed and batches them together.
+    4. React 18 uses Concurrent Mode and Fiber architecture, which can pause and
+       prioritise updates (like typing in a search box over background rendering).
+
+---
+
+Q36. Explain the difference between Conditional Rendering vs CSS display toggling.
+     Why did you use CSS display toggling for tabs?
+-----------------------------------------------------------------------------------
+A:  - CONDITIONAL RENDERING (`{activeTab === 'discover' && <DiscoverView />}`):
+      Unmounts the component completely when false. State (scroll position, input
+      values, fetched list) is destroyed and garbage-collected. Remounting requires
+      re-initialising and re-fetching data.
+
+    - CSS DISPLAY TOGGLING (`className={activeTab === 'discover' ? 'flex' : 'hidden'}`):
+      The component remains mounted in the DOM, preserving its state, active
+      network requests, and scroll offsets. Only CSS `display: none` is applied.
+
+    In `Abstracts`, switching between "For You" and "Discover" uses CSS toggling
+    (Keep-Alive pattern) so the researcher doesn't lose their in-progress search
+    results and active filters when checking their feed.
+
+================================================================================
+       SECTION 10 — JAVASCRIPT CORE & ES6+ QUESTIONS (Applied to Project)
+================================================================================
+
+Q37. Explain the JavaScript Event Loop, Call Stack, Microtasks, and Macrotasks.
+-------------------------------------------------------------------------------
+A:  JavaScript is single-threaded and non-blocking:
+    1. Call Stack: Executes synchronous code line by line.
+    2. Web APIs / Node APIs: Handles asynchronous tasks (timers, fetch/HTTP,
+       filesystem I/O) off the main thread.
+    3. Microtask Queue: Highest priority queue for Promise callbacks (`.then()`,
+       `catch()`, `await` continuations) and `process.nextTick`.
+    4. Macrotask Queue: For `setTimeout`, `setInterval`, and I/O callbacks.
+
+    When Call Stack is empty:
+    The Event Loop first drains ALL Microtasks before taking the next Macrotask.
+
+    Application in project:
+    When `fetch('/api/search/papers')` completes, its response resolution runs
+    as a Microtask, updating state before the browser renders the next frame.
+
+---
+
+Q38. What is a Closure in JavaScript, and where is it used in your project?
+--------------------------------------------------------------------------
+A:  A closure is a function bundled together with references to its surrounding
+    lexical scope, allowing the inner function to access outer variables even
+    after the outer function has finished executing.
+
+    Where it's used in this project:
+    1. Functional State Updaters:
+         `setFeeds(prev => prev.map((f, i) => i === idx ? { ...f, papers } : f))`
+       The callback retains access to `idx` and `papers` from the enclosing
+       `userInterests.forEach` iteration.
+    2. Express Middleware:
+         `authMiddleware(req, res, next)` forms a closure over `JWT_SECRET`
+         defined in the outer module scope.
+    3. Factory / Helper functions:
+         `getCacheKey(q, limit, offset, year, sort, userId)` retains access to
+         its argument variables to construct a composite string.
+
+---
+
+Q39. What is the difference between `==` and `===`? What about `null` vs `undefined`?
+-------------------------------------------------------------------------------------
+A:  - `==` (Loose Equality): Performs type coercion before comparing (e.g. `1 == '1'` is true).
+    - `===` (Strict Equality): Compares both value AND type without coercion (`1 === '1'` is false).
+      Always used across my codebase to avoid unexpected bugs.
+
+    - `undefined`: A variable that has been declared but not assigned a value.
+    - `null`: An intentional assignment representing the absence of an object value.
+
+    In my project:
+    - MongoDB queries return `null` when a document is not found.
+    - Optional paper fields (like `doi` or `abstract`) may be `undefined` if not
+      returned by Semantic Scholar. I handle this safely with Optional Chaining:
+      `paper.authors?.map(...)` and Nullish Coalescing: `paper.abstract ?? 'No summary available.'`
+
+---
+
+Q40. What is the difference between `nullish coalescing (??)` and `logical OR (||)`?
+-----------------------------------------------------------------------------------
+A:  - `||` checks for any falsy value (`false`, `0`, `""`, `NaN`, `null`, `undefined`).
+    - `??` strictly checks only for `null` or `undefined`.
+
+    Project relevance:
+    When reading citation counts: `paper.citationCount ?? 'N/A'`
+    If a new paper has `0` citations, `0 || 'N/A'` would incorrectly display 'N/A'
+    because 0 is falsy. But `0 ?? 'N/A'` correctly displays `0`!
+
+---
+
+Q41. Explain array methods: `map()`, `filter()`, `reduce()`, and `some()`.
+---------------------------------------------------------------------------
+A:  All four are non-mutating functional array methods:
+    - `map()`: Transforms every element into a new array.
+      Used to render lists of papers: `papers.map(p => <PaperCard key={p.id} paper={p} />)`
+    - `filter()`: Returns a subset of elements that satisfy a boolean predicate.
+      Used in `filterPapers` to filter by year and author.
+    - `some()`: Returns true if AT LEAST ONE element matches the condition.
+      Used in `filterUtils.ts`:
+        `paper.authors.some(author => criteria.authors.includes(author))`
+    - `reduce()`: Accumulates an array into a single value (object, number, etc.).
+      Used in `authMiddleware` to parse cookie strings into key-value pairs:
+        `req.headers.cookie.split(';').reduce((acc, pair) => { ... }, {})`
+
+---
+
+Q42. Compare Arrow Functions vs Regular Functions.
+--------------------------------------------------
+A:  1. `this` binding:
+       - Regular functions define their own `this` depending on how they are called.
+       - Arrow functions have lexical `this` (they inherit `this` from the enclosing scope).
+    2. Constructors: Regular functions can be constructors (`new Person()`); arrow functions cannot.
+    3. `arguments` object: Regular functions have `arguments`; arrow functions use rest parameters `(...args)`.
+
+    In this project:
+    - Express route handlers and controller exports use arrow functions:
+      `export const register = async (req, res) => { ... }`
+    - React functional components use arrow functions for clean syntax and
+      predictable lexical scoping.
+
+================================================================================
+             SECTION 11 — API & NETWORKING QUESTIONS (Applied to Project)
+================================================================================
+
+Q43. What are RESTful API principles? How are they structured in your project?
+------------------------------------------------------------------------------
+A:  REST (Representational State Transfer) is an architectural style based on:
+    - Statelessness: Each request carries all necessary credentials and data.
+    - Client-Server separation: React UI is decoupled from the Express backend.
+    - Uniform Interface / Resource-Oriented URLs:
+      - `GET    /api/papers`       → Retrieve list of saved papers
+      - `POST   /api/papers`       → Save a new paper
+      - `GET    /api/papers/:id`   → Get specific paper
+      - `DELETE /api/papers/:id`   → Delete a paper
+      - `PATCH  /api/user/profile` → Partially update user profile (e.g. interests)
+      - `POST   /api/auth/login`   → Authenticate session
+
+    Standard HTTP Verbs map cleanly to CRUD (Create = POST, Read = GET,
+    Update = PUT/PATCH, Delete = DELETE).
+
+---
+
+Q44. What are the common HTTP status codes you used in your Express controllers?
+--------------------------------------------------------------------------------
+A:  - 200 OK: Successful request (GET papers, successful login).
+    - 201 Created: New resource created (User registered, project created).
+    - 400 Bad Request: Missing or invalid payload (e.g. missing password).
+    - 401 Unauthorized: Missing or invalid/expired JWT token.
+    - 403 Forbidden: Valid token, but unauthorized (CSRF failure, or trying to delete
+      another user's project — IDOR check).
+    - 404 Not Found: Requested resource doesn't exist.
+    - 413 Payload Too Large: Uploaded PDF exceeds 50MB limit in Multer.
+    - 429 Too Many Requests: Rate limit exceeded (auth brute force or community spam).
+    - 500 Internal Server Error: Unhandled backend crash or DB failure.
+
+---
+
+Q45. Walk through your centralized API wrapper (`src/app/services/api.ts`).
+---------------------------------------------------------------------------
+A:  Instead of calling `fetch()` randomly across components, all requests route
+    through a centralized `request<T>()` function:
+    1. Base URL configuration: Dynamically chooses between development proxy
+       (`/api`) and production Render/Vercel URL (`import.meta.env.PROD`).
+    2. Credentials handling: Automatically sets `credentials: 'include'` so
+       HttpOnly cookies travel with cross-site requests.
+    3. Auth Header: Attaches `Authorization: Bearer <token>` if a token exists
+       in localStorage (dual fallback support).
+    4. FormData handling: If `body instanceof FormData`, it deletes the default
+       `Content-Type: application/json` header so the browser can calculate the
+       correct `multipart/form-data; boundary=...`.
+    5. Error handling & 401 Interception: If status is 401 on a protected route,
+       it automatically clears the token and reloads the window to send the user
+       to the login screen.
+
+---
+
+Q46. Why must you NOT set `Content-Type: multipart/form-data` manually for file uploads?
+----------------------------------------------------------------------------------------
+A:  When you upload a file with `FormData`, the browser MUST append a unique
+    `boundary` string to the `Content-Type` header
+    (e.g., `multipart/form-data; boundary=----WebKitFormBoundaryXYZ`).
+
+    If you manually set `headers: { 'Content-Type': 'multipart/form-data' }`,
+    the boundary parameter is omitted. The backend (Multer) cannot identify where
+    fields and file bytes start and end, resulting in an unparseable payload error.
+    My `api.ts` checks `options.body instanceof FormData` and deletes `Content-Type`
+    so the browser sets the boundary automatically.
+
+---
+
+Q47. How did you implement API resiliency for paper search?
+-----------------------------------------------------------
+A:  External academic APIs can experience rate limits or downtime.
+    In `searchController.js`:
+    1. Check in-memory cache first.
+    2. Primary call: Semantic Scholar API.
+    3. Fallback logic: If Semantic Scholar returns a 5xx error, network timeout,
+       or 0 results, the controller catches the error and queries the OpenAlex
+       API as a secondary provider.
+    4. The data from both providers is normalized into a unified Paper schema
+       before returning to the client, so the frontend React components never
+       care which API serviced the request.
+
+================================================================================
+            SECTION 12 — TYPESCRIPT QUESTIONS (Applied to Project)
+================================================================================
+
+Q48. Why did you use TypeScript on the frontend instead of vanilla JavaScript?
+------------------------------------------------------------------------------
+A:  1. Type Safety & Compile-time error detection: Prevents common runtime crashes
+       like `Cannot read property 'map' of undefined` when dealing with external
+       API responses.
+    2. Autocomplete & IntelliSense: Full IDE autocomplete for component props,
+       API schemas, and state objects.
+    3. Self-documenting code: Function signatures clearly describe what inputs
+       they accept and what they return.
+    4. Safe Refactoring: If I rename a field in `Paper` or `User`, the TypeScript
+       compiler immediately highlights all components that break across the codebase.
+
+---
+
+Q49. Explain Generics in TypeScript. Where did you use them in your code?
+------------------------------------------------------------------------
+A:  Generics allow us to create reusable components and functions that work over
+    a variety of types rather than a single one, while maintaining strict type
+    safety.
+
+    Example 1 from `src/app/services/api.ts`:
+      `interface ApiResponse<T> { success: boolean; data: T; error?: string; }`
+      `async function request<T>(endpoint: string, options?: RequestInit): Promise<ApiResponse<T>>`
+    When fetching papers:
+      `request<Paper[]>('/papers')` → TypeScript knows `res.data` is `Paper[]`.
+    When fetching a user:
+      `request<User>('/user/me')`   → TypeScript knows `res.data` is `User`.
+
+    Example 2 from `src/app/utils/filterUtils.ts`:
+      `export function filterPapers<T extends { authors: string[], year: string }>(`
+      `  papers: T[], criteria: FilterCriteria): T[]`
+    This uses a Generic Constraint (`extends`): Any object with `authors` and `year`
+    can be filtered, and the function returns the EXACT same type `T[]` without
+    losing any additional properties the object had.
+
+---
+
+Q50. What is the difference between `interface` and `type` in TypeScript?
+-------------------------------------------------------------------------
+A:  Both define the shape of an object, but with key differences:
+    - `interface`:
+      - Can be merged (declaration merging: two interfaces with the same name combine).
+      - Supports `extends` for object inheritance.
+      - Ideal for object schemas and public APIs (used for `ApiResponse<T>`,
+        `FilterCriteria`, `User`, `Paper`).
+    - `type`:
+      - More flexible: supports union types (`type Role = 'student' | 'researcher' | 'professor'`),
+        primitive aliases, tuples, and mapped types.
+      - Cannot be reopened for declaration merging.
+
+---
+
+Q51. What is Type Assertion (`as`) and Type Narrowing? Give examples.
+---------------------------------------------------------------------
+A:  - TYPE ASSERTION (`as`): Telling the TypeScript compiler "I know more about
+      this type than you do, treat it as X."
+      Example from `api.ts`:
+        `delete (config.headers as Record<string, string>)['Content-Type'];`
+      Because `HeadersInit` can be an array, object, or Headers instance, casting
+      it as `Record<string, string>` allows index signature deletion without
+      compiler complaints.
+
+    - TYPE NARROWING: Refining a broader type into a more specific type using
+      runtime checks:
+      - `typeof x === 'string'`
+      - `instanceof`: `if (options.body instanceof FormData)`
+      - Truthiness check: `if (paper.abstract) { /* safe to use string methods */ }`
+
+---
+
+Q52. How does TypeScript handle `strict: true` and optional properties?
+-----------------------------------------------------------------------
+A:  With `strict: true` (configured in `tsconfig.json`):
+    - `strictNullChecks` prevents accessing properties on variables that could
+      be `null` or `undefined`.
+    - `noImplicitAny` forces developers to explicitly define types rather than
+      falling back to `any`.
+    - Optional properties (`?`) like `error?: string` in `ApiResponse<T>` signify
+      that the property may be present or `undefined`.
+    This forces us to write defensive frontend code, checking `if (res.error)`
+    before assuming `res.data` exists.
+
+================================================================================
+                         QUICK REFERENCE CHEAT SHEET
+================================================================================
+
+Tech Stack at a glance:
+  Frontend  : React 18, TypeScript, Vite, Tailwind CSS v4, Radix UI,
+              React Router v7, React Hook Form, Recharts, Framer Motion
+  Backend   : Node.js, Express, MongoDB Atlas, Mongoose, JWT, Bcrypt,
+              Helmet, express-rate-limit, Multer, Nodemailer, XSS lib
+  AI        : Groq SDK (openai/gpt-oss-120b), Google Gemini API (@google/generative-ai)
+  Auth      : JWT (email/password) + Firebase Admin SDK (Google Sign-In)
+  External APIs: Semantic Scholar, OpenAlex
+  Deployment: Vercel (frontend + serverless backend), MongoDB Atlas
+  Security  : Helmet, HttpOnly JWT cookies, CSRF middleware, Rate limiting,
+              XSS sanitisation, IDOR checks, input validation, error masking
+
+Key numbers to remember:
+  - 71 research domains in onboarding
+  - Up to 4 interests per user
+  - Bcrypt: 10 salt rounds
+  - Auth rate limit: 5 attempts / 15 minutes
+  - Community post rate limit: 5 requests / 1 minute
+  - File upload limit: 50 MB (PDFs), images: JPEG/PNG/WebP
+  - JWT validity: 7 days
+  - Live at: https://abstracts-research-hub.vercel.app
+
+================================================================================
+                              END OF VIVA.TXT
+================================================================================
+

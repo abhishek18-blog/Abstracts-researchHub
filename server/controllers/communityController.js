@@ -56,7 +56,14 @@ export const getAllCommunities = async (req, res) => {
 
 export const getCommunityById = async (req, res) => {
   try {
-    const community = await Community.findById(req.params.id).lean();
+    let community = null;
+    if (req.params.id && req.params.id !== 'undefined' && req.params.id !== 'null') {
+      community = await Community.findById(req.params.id).lean();
+    }
+    // Gracefully fallback for legacy mock/placeholder IDs (e.g. comm-1, comm-2) from cached clients
+    if (!community && (req.params.id?.startsWith('comm-') || req.params.id === 'default')) {
+      community = await Community.findOne().lean();
+    }
     if (!community) return res.status(404).json({ success: false, error: 'Community not found' });
 
     // ⚡ PERFORMANCE FIX: Instead of fetching membership status, member list, and posts one after another,
@@ -73,6 +80,22 @@ export const getCommunityById = async (req, res) => {
 
     const membersCount = membersRaw.length;
     const isMember = !!isMemberDoc; // converts to simple true/false
+
+    // [SECURITY - GUEST]: Guests are strictly search & read-only and cannot see community posts/messages
+    if (!req.userId) {
+      return res.json({
+        success: true,
+        data: {
+          ...community,
+          id: community._id,
+          memberCount: membersCount,
+          postCount: postsRaw.length,
+          isMember: false,
+          members: [], // Hidden for guests
+          posts: [],   // Messages strictly hidden for guests
+        },
+      });
+    }
 
     // [SECURITY]: Content Hiding for Private Communities
     // If the community is private and the user is not a member, we intentionally 
@@ -220,23 +243,30 @@ export const updateCommunity = async (req, res) => {
 
 export const joinCommunity = async (req, res) => {
   try {
-    const community = await Community.findById(req.params.id);
+    let community = null;
+    if (req.params.id && req.params.id !== 'undefined' && req.params.id !== 'null') {
+      community = await Community.findById(req.params.id);
+    }
+    if (!community && (req.params.id?.startsWith('comm-') || req.params.id === 'default')) {
+      community = await Community.findOne();
+    }
     if (!community) return res.status(404).json({ success: false, error: 'Community not found' });
+    const targetCommunityId = community._id;
 
-    const existing = await CommunityMember.findOne({ community_id: req.params.id, user_id: req.userId });
+    const existing = await CommunityMember.findOne({ community_id: targetCommunityId, user_id: req.userId });
     if (existing) return res.status(409).json({ success: false, error: 'Already a member' });
 
     if (community.is_private) {
       // [SECURITY]: Access Control (Private Communities)
       // If a community is private, users cannot bypass this check to join directly.
       // We log a 'JoinRequest' which must be explicitly approved by an authorized admin.
-      const existingRequest = await JoinRequest.findOne({ community_id: req.params.id, user_id: req.userId, status: 'pending' });
+      const existingRequest = await JoinRequest.findOne({ community_id: targetCommunityId, user_id: req.userId, status: 'pending' });
       if (existingRequest) {
         return res.status(409).json({ success: false, error: 'Request already pending' });
       }
 
       const request = new JoinRequest({
-        community_id: req.params.id,
+        community_id: targetCommunityId,
         user_id: req.userId
       });
       await request.save();
@@ -244,7 +274,7 @@ export const joinCommunity = async (req, res) => {
       // [FEATURE]: Email Notification on Join Request
       // Fire-and-forget email notification to admins so they don't have to constantly check the UI.
       try {
-        const admins = await CommunityMember.find({ community_id: req.params.id, role: 'admin' }).populate('user_id', 'email');
+        const admins = await CommunityMember.find({ community_id: targetCommunityId, role: 'admin' }).populate('user_id', 'email');
         const creator = await User.findById(community.created_by).select('email');
         const adminEmails = [creator?.email, ...admins.map(m => m.user_id?.email)].filter(Boolean);
         const uniqueEmails = [...new Set(adminEmails)];
@@ -393,14 +423,21 @@ export const createPost = async (req, res) => {
     // from the user's post content.
     const sanitizedContent = xss(content.trim());
 
-    const community = await Community.findById(req.params.id);
+    let community = null;
+    if (req.params.id && req.params.id !== 'undefined' && req.params.id !== 'null') {
+      community = await Community.findById(req.params.id);
+    }
+    if (!community && (req.params.id?.startsWith('comm-') || req.params.id === 'default')) {
+      community = await Community.findOne();
+    }
     if (!community) return res.status(404).json({ success: false, error: 'Community not found' });
+    const targetCommunityId = community._id;
 
-    const isMember = await CommunityMember.findOne({ community_id: req.params.id, user_id: req.userId });
+    const isMember = await CommunityMember.findOne({ community_id: targetCommunityId, user_id: req.userId });
     if (!isMember) return res.status(403).json({ success: false, error: 'You must join this community to post' });
 
     const post = new CommunityPost({
-      community_id: req.params.id,
+      community_id: targetCommunityId,
       user_id: req.userId,
       content: sanitizedContent,
       paper_ids: paper_ids || [],

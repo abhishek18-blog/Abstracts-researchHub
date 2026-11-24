@@ -19,29 +19,24 @@ async function getAIResponse(messages, userMessage) {
     }));
     formattedHistory.push({ role: 'user', content: userMessage });
 
-    try {
-      const chatCompletion = await groq.chat.completions.create({
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...formattedHistory
-        ],
-        model: 'llama-3.3-70b-versatile',
-      });
+    const groqModels = ['openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.8-27b'];
 
-      return chatCompletion.choices[0].message.content.replace(/\*\*/g, '');
-    } catch (error) {
-      console.warn('Groq 70b failed, trying fallback model llama-3.1-8b-instant:', error.message);
+    for (const model of groqModels) {
       try {
-        const fallbackCompletion = await groq.chat.completions.create({
+        const chatCompletion = await groq.chat.completions.create({
           messages: [
             { role: 'system', content: systemPrompt },
             ...formattedHistory
           ],
-          model: 'llama-3.1-8b-instant',
+          model,
         });
-        return fallbackCompletion.choices[0].message.content.replace(/\*\*/g, '');
-      } catch (err2) {
-        console.warn('Groq secondary model failed, checking Gemini fallback:', err2.message);
+
+        if (chatCompletion?.choices?.[0]?.message?.content) {
+          return chatCompletion.choices[0].message.content.replace(/\*\*/g, '');
+        }
+      } catch (error) {
+        console.warn(`Groq model ${model} failed, trying next option:`, error.message);
+        continue;
       }
     }
   }
