@@ -40,32 +40,27 @@ CRITICAL INSTRUCTIONS:
 
     let responseContent = null;
 
-    // 1. Try Groq (using valid LLaMA 3 models)
+    // 1. Try Groq (using active models: gpt-oss-120b, gpt-oss-20b, qwen3.8-27b)
     if (groq) {
-      try {
-        const chatCompletion = await groq.chat.completions.create({
-          messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: prompt },
-          ],
-          model: 'llama-3.3-70b-versatile',
-          response_format: { type: 'json_object' }
-        });
-        responseContent = chatCompletion.choices[0].message.content;
-      } catch (groqErr) {
-        console.warn('Groq primary model failed, trying fallback llama-3.1-8b-instant:', groqErr.message);
+      const groqModels = ['openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.8-27b'];
+
+      for (const model of groqModels) {
         try {
-          const fallbackCompletion = await groq.chat.completions.create({
+          const chatCompletion = await groq.chat.completions.create({
             messages: [
               { role: 'system', content: systemPrompt },
               { role: 'user', content: prompt },
             ],
-            model: 'llama-3.1-8b-instant',
+            model,
             response_format: { type: 'json_object' }
           });
-          responseContent = fallbackCompletion.choices[0].message.content;
-        } catch (e2) {
-          console.warn('Groq secondary model failed, checking Gemini fallback:', e2.message);
+          if (chatCompletion?.choices?.[0]?.message?.content) {
+            responseContent = chatCompletion.choices[0].message.content;
+            break;
+          }
+        } catch (groqErr) {
+          console.warn(`Groq model ${model} failed, trying next option:`, groqErr.message);
+          continue;
         }
       }
     }
